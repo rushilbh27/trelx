@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { analyzeEligibleCalls } from "@/lib/pipeline";
+import { analyzeAllEligibleCalls, analyzeEligibleCalls } from "@/lib/pipeline";
 
 export const dynamic = "force-dynamic";
 
 type AnalyzeBody = {
   limit?: number;
+  all?: boolean;
 };
 
 async function readBody(request: Request): Promise<AnalyzeBody> {
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
   try {
     const body = await readBody(request);
     const limit = Math.min(Math.max(body.limit ?? 15, 1), 100);
-    const result = await analyzeEligibleCalls(limit);
+    const result = body.all ? await analyzeAllEligibleCalls(limit) : await analyzeEligibleCalls(limit);
 
     return NextResponse.json({
       ok: true,

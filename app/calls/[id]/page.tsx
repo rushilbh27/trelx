@@ -5,6 +5,7 @@ import { TranscriptBubble } from "@/app/components/TranscriptBubble";
 import { createServerSupabase } from "@/lib/supabase";
 import { errorLabel, hasAgentEvidence, severityText } from "@/lib/error-copy";
 import { formatDuration, messageRowsToTranscriptLines, parseTranscript } from "@/lib/transcript";
+import { getCallRecordingUrl } from "@/lib/ultravox";
 import type { Call, CallError, CallMessage, CallTool } from "@/lib/types";
 import type { TranscriptLine } from "@/lib/transcript";
 
@@ -26,11 +27,12 @@ function excerpt(value: unknown): string {
 export default async function CallDetailPage({ params }: { params: { id: string } }) {
   const callId = decodeURIComponent(params.id);
   const supabase = createServerSupabase();
-  const [callResult, errorsResult, messagesResult, toolsResult] = await Promise.all([
+  const [callResult, errorsResult, messagesResult, toolsResult, recordingUrl] = await Promise.all([
     supabase.from("calls").select("*").eq("id", callId).single(),
     supabase.from("call_errors").select("*").eq("call_id", callId).order("detected_at", { ascending: false }),
     supabase.from("call_messages").select("call_id,role,text,ordinal").eq("call_id", callId).order("ordinal", { ascending: true }),
-    supabase.from("call_tools").select("call_id,tool_name,parameters,result,invocation_time,status,error_message").eq("call_id", callId).order("invocation_time", { ascending: true })
+    supabase.from("call_tools").select("call_id,tool_name,parameters,result,invocation_time,status,error_message").eq("call_id", callId).order("invocation_time", { ascending: true }),
+    getCallRecordingUrl(callId).catch(() => null)
   ]);
 
   if (callResult.error || !callResult.data) notFound();
@@ -91,6 +93,17 @@ export default async function CallDetailPage({ params }: { params: { id: string 
           </div>
         </div>
       </section>
+
+      {recordingUrl ? (
+        <section className="mb-6 border border-white/10 bg-black p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Recording</h2>
+            <span className="h-2 w-2 rounded-full bg-emerald-300" />
+          </div>
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <audio controls src={recordingUrl} className="w-full" />
+        </section>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
         <section className="border border-white/10 bg-black">

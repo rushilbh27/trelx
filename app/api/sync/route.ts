@@ -7,7 +7,8 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const limit = Number.parseInt(searchParams.get("limit") ?? "100", 10);
-    const result = await syncLatestCalls(Number.isFinite(limit) ? limit : 100);
+    const all = searchParams.get("all") === "1";
+    const result = await syncLatestCalls(Number.isFinite(limit) ? limit : 100, all);
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     return NextResponse.json(

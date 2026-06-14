@@ -3,6 +3,8 @@
 @tailwind utilities;
 
 :root {
+  --font-display: "Avenir Next", "Space Grotesk", "Segoe UI", sans-serif;
+  --font-sans: "Avenir Next", "Inter", "Helvetica Neue", "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
 }
 
@@ -12,6 +14,13 @@
 
 body {
   margin: 0;
-  background: #0b0d0f;
+  background:
+    linear-gradient(120deg, rgba(226, 146, 94, 0.68) 0%, rgba(170, 137, 166, 0.52) 38%, rgba(92, 146, 219, 0.74) 100%),
+    linear-gradient(180deg, #090909 0%, #121212 100%);
   color: #e8ecef;
+}
+
+::selection {
+  background: rgba(249, 115, 22, 0.35);
+  color: #f7faf8;
 }

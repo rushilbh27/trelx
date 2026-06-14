@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-async function runAnalysisBatches(maxBatches: number, batchSize: number, setStatus: (value: string) => void) {
+async function runAnalysisBatches(batchSize: number, setStatus: (value: string) => void) {
   let analyzed = 0;
   let errors = 0;
   let skippedShort = 0;
 
-  for (let batch = 0; batch < maxBatches; batch += 1) {
-    setStatus(`analyzing batch ${batch + 1}/${maxBatches}`);
+  for (let batch = 0; batch < 250; batch += 1) {
+    setStatus(`analyzing batch ${batch + 1}`);
     const response = await fetch("/api/analyze", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -44,17 +44,21 @@ export function DashboardActions() {
     didRun.current = true;
     let cancelled = false;
 
-    async function runPipeline(syncLimit: number, maxBatches: number, batchSize: number) {
+    async function runPipeline(options: { syncLimit?: number; fullSync?: boolean; batchSize: number }) {
       if (running.current || cancelled) return;
       running.current = true;
 
       try {
-        setStatus(`syncing latest ${syncLimit} calls`);
-        const syncResponse = await fetch(`/api/sync?limit=${syncLimit}`, { method: "GET" });
+        const syncLabel = options.fullSync ? "syncing full history" : `syncing latest ${options.syncLimit ?? 100} calls`;
+        setStatus(syncLabel);
+        const syncResponse = await fetch(
+          options.fullSync ? "/api/sync?all=1" : `/api/sync?limit=${options.syncLimit ?? 100}`,
+          { method: "GET" }
+        );
         const syncData = (await syncResponse.json()) as { ok?: boolean; synced?: number; error?: string };
         if (!syncData.ok) throw new Error(syncData.error ?? "sync failed");
 
-        const analysis = await runAnalysisBatches(maxBatches, batchSize, setStatus);
+        const analysis = await runAnalysisBatches(options.batchSize, setStatus);
         if (cancelled) return;
 
         setStatus(
@@ -68,9 +72,9 @@ export function DashboardActions() {
       }
     }
 
-    runPipeline(500, 20, 25);
+    runPipeline({ syncLimit: 200, batchSize: 25 });
     const interval = window.setInterval(() => {
-      runPipeline(100, 6, 20);
+      runPipeline({ syncLimit: 100, batchSize: 20 });
     }, 60000);
 
     return () => {
@@ -80,11 +84,13 @@ export function DashboardActions() {
   }, [router]);
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="border border-emerald-300/40 bg-emerald-300/10 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-200">
+    <div className="rounded-[24px] border border-white/10 bg-black/35 p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="rounded-full border border-orange-300/40 bg-orange-400/12 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-100">
         {isPending ? "refreshing" : "auto pipeline"}
-      </span>
-      <span className="text-xs text-zinc-400">{status}</span>
+        </span>
+        <span className="text-xs text-zinc-400">{status}</span>
+      </div>
     </div>
   );
 }

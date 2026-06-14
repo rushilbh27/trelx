@@ -191,6 +191,24 @@ export async function getCallDetails(callId: string): Promise<UltravoxCall> {
   return fetchJson<UltravoxCall>(`${ULTRAVOX_API_URL}/calls/${callId}`);
 }
 
+export async function getCallRecordingUrl(callId: string): Promise<string | null> {
+  const response = await fetch(`${ULTRAVOX_API_URL}/calls/${callId}/recording`, {
+    headers: headers(),
+    redirect: "manual",
+    cache: "no-store"
+  });
+
+  if (response.status === 301 || response.status === 302) {
+    return response.headers.get("location");
+  }
+
+  if (response.ok) {
+    return `${ULTRAVOX_API_URL}/calls/${callId}/recording`;
+  }
+
+  return null;
+}
+
 export async function getCallTools(callId: string): Promise<UltravoxTool[]> {
   try {
     return fetchPaginated<UltravoxTool>(`${ULTRAVOX_API_URL}/calls/${callId}/tools?limit=100`, 10);
@@ -199,18 +217,22 @@ export async function getCallTools(callId: string): Promise<UltravoxTool[]> {
   }
 }
 
-export async function getCalls(opts: { limit?: number; all?: boolean } = {}): Promise<EnrichedUltravoxCall[]> {
+export async function listCalls(opts: { limit?: number; all?: boolean } = {}): Promise<UltravoxCall[]> {
   const limit = opts.limit ?? 100;
-  const pageSize = Math.min(Math.max(limit, 1), 100);
+  const pageSize = 100;
   const maxPages = opts.all ? 50 : Math.ceil(limit / pageSize);
   const calls = await fetchPaginated<UltravoxCall>(
     `${ULTRAVOX_API_URL}/calls?limit=${pageSize}&ordering=-created`,
     maxPages
   );
 
-  const endedCalls = calls.filter((call) => Boolean(call.ended)).slice(0, limit);
+  const endedCalls = calls.filter((call) => Boolean(call.ended));
+  return opts.all ? endedCalls : endedCalls.slice(0, limit);
+}
+
+export async function enrichCalls(calls: UltravoxCall[]): Promise<EnrichedUltravoxCall[]> {
   return runPool(
-    endedCalls,
+    calls,
     5,
     async (call) => {
       const [messages, tools] = await Promise.all([
@@ -226,6 +248,11 @@ export async function getCalls(opts: { limit?: number; all?: boolean } = {}): Pr
       };
     }
   );
+}
+
+export async function getCalls(opts: { limit?: number; all?: boolean } = {}): Promise<EnrichedUltravoxCall[]> {
+  const calls = await listCalls(opts);
+  return enrichCalls(calls);
 }
 
 export async function getAgents(): Promise<UltravoxAgent[]> {

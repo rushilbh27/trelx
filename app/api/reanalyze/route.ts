@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 
 type Body = {
   limit?: number;
+  all?: boolean;
 };
 
 async function readBody(request: Request): Promise<Body> {
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
   try {
     const body = await readBody(request);
     const limit = Math.min(Math.max(body.limit ?? 100, 1), 500);
-    const result = await reanalyzeRecentCalls(limit);
+    const result = await reanalyzeRecentCalls(limit, body.all === true);
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     return NextResponse.json(
