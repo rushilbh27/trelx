@@ -16,21 +16,21 @@ export function ErrorEvidenceCard({
   const context = transcriptContext(transcriptLines, error.quote, 2);
 
   return (
-    <article className="border border-white/10 bg-black p-5">
+    <article className="rounded-[26px] border border-white/8 bg-[#111111] p-5">
       <div className="flex flex-wrap items-center gap-2">
         <span className={`border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${severityTone(error.severity)}`}>
           {error.severity}
         </span>
         <span className="text-sm font-black text-white">{errorLabel(error.error_type)}</span>
         {error.call_stage ? <span className="border border-white/10 px-2 py-1 text-[10px] uppercase text-zinc-500">{error.call_stage}</span> : null}
-        <Link href={`/calls/${encodeURIComponent(error.call_id)}`} className="ml-auto text-xs text-emerald-300 hover:text-white">
+        <Link href={`/calls/${encodeURIComponent(error.call_id)}`} className="ml-auto text-xs uppercase tracking-[0.14em] text-orange-100 hover:text-white">
           inspect call
         </Link>
       </div>
 
       <p className="mt-3 text-sm leading-6 text-zinc-400">{errorImpact(error.error_type)}</p>
 
-      <blockquote className="mt-4 border-l-2 border-emerald-300 bg-emerald-950/10 px-4 py-3 text-sm leading-6 text-zinc-100">
+      <blockquote className="mt-4 border-l-2 border-orange-300 bg-[#18110d] px-4 py-3 text-sm leading-6 text-zinc-100">
         {error.quote ?? "No quote captured."}
       </blockquote>
 

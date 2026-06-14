@@ -49,19 +49,19 @@ export default async function CallsPage() {
     <main className="mx-auto max-w-7xl px-5 py-8">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-emerald-300">Voxray-style evidence queue</p>
+          <p className="text-xs uppercase tracking-[0.24em] text-orange-100">Voxray-style evidence queue</p>
           <h1 className="mt-2 text-4xl font-black text-white">Calls</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
             Latest ended Ultravox calls. Transcript-backed analysis, short-call skips, top failure type, and end reason.
           </p>
         </div>
-        <Link href="/errors" className="border border-white/10 bg-black px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-zinc-300 hover:border-emerald-300 hover:text-white">
+        <Link href="/errors" className="rounded-full border border-orange-300/20 bg-[#171311] px-4 py-3 text-xs font-black uppercase tracking-[0.14em] text-zinc-300 hover:border-orange-300 hover:text-white">
           error queue
         </Link>
       </div>
 
-      <section className="overflow-hidden border border-white/10 bg-black">
-        <div className="grid grid-cols-[1.2fr_90px_110px_130px] border-b border-white/10 px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-zinc-500 md:grid-cols-[1.1fr_150px_90px_120px_170px_150px]">
+      <section className="overflow-hidden rounded-[28px] border border-white/8 bg-[#111111]">
+        <div className="grid grid-cols-[minmax(0,1.2fr)_90px_110px_130px] border-b border-white/10 px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-zinc-500 md:grid-cols-[minmax(0,1.1fr)_150px_90px_120px_170px_150px]">
           <div>Call</div>
           <div className="hidden md:block">Agent</div>
           <div>Duration</div>
@@ -78,7 +78,7 @@ export default async function CallsPage() {
               <Link
                 key={call.id}
                 href={`/calls/${encodeURIComponent(call.id)}`}
-                className="grid grid-cols-[1.2fr_90px_110px_130px] px-4 py-4 text-sm transition hover:bg-white/[0.03] md:grid-cols-[1.1fr_150px_90px_120px_170px_150px]"
+                className="grid grid-cols-[minmax(0,1.2fr)_90px_110px_130px] gap-3 px-4 py-4 text-sm transition hover:bg-white/[0.03] md:grid-cols-[minmax(0,1.1fr)_150px_90px_120px_170px_150px]"
               >
                 <div className="min-w-0">
                   <div className="truncate font-black text-white">{call.summary || call.id}</div>
@@ -88,7 +88,7 @@ export default async function CallsPage() {
                 <div className={call.duration_seconds && call.duration_seconds >= 30 ? "text-zinc-200" : "text-zinc-600"}>
                   {formatDuration(call.duration_seconds)}
                 </div>
-                <div className={critical ? severityText("critical") : (call.error_count ?? 0) > 0 ? severityText("high") : call.analysis_status === "complete" ? "text-emerald-300" : "text-yellow-300"}>
+                <div className={critical ? severityText("critical") : (call.error_count ?? 0) > 0 ? severityText("high") : call.analysis_status === "complete" ? "text-orange-100" : "text-yellow-300"}>
                   {status}
                 </div>
                 <div className={critical ? severityText("critical") : "truncate text-zinc-400"}>

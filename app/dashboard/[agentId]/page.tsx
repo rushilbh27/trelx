@@ -113,31 +113,31 @@ export default async function AgentPage({ params }: { params: { agentId: string 
       ) : null}
       <div className="mt-5 grid gap-6 lg:grid-cols-[0.72fr_0.28fr]">
         <section>
-          <p className="text-xs uppercase tracking-[0.24em] text-emerald-300">Agent profile</p>
+          <p className="text-xs uppercase tracking-[0.24em] text-orange-100">Agent profile</p>
           <h1 className="mt-2 text-4xl font-black text-white">{agentName}</h1>
           <p className="mt-2 break-all text-xs text-zinc-500">{agentId}</p>
 
           <div className="mt-8 grid gap-3 md:grid-cols-4">
-            <div className="border border-white/10 bg-black p-4">
+            <div className="rounded-[24px] border border-white/8 bg-[#111111] p-4">
               <div className="text-xs text-zinc-500">Calls</div>
               <div className="mt-1 text-3xl font-black">{calls.length}</div>
             </div>
-            <div className="border border-white/10 bg-black p-4">
+            <div className="rounded-[24px] border border-white/8 bg-[#111111] p-4">
               <div className="text-xs text-zinc-500">Analyzed</div>
               <div className="mt-1 text-3xl font-black">{analyzedCalls}</div>
             </div>
-            <div className="border border-white/10 bg-black p-4">
+            <div className="rounded-[24px] border border-white/8 bg-[#111111] p-4">
               <div className="text-xs text-zinc-500">Error rate</div>
-              <div className={`mt-1 text-3xl font-black ${errorRate > 0 ? "text-orange-300" : "text-emerald-300"}`}>{errorRate}%</div>
+              <div className={`mt-1 text-3xl font-black ${errorRate > 0 ? "text-orange-300" : "text-orange-100"}`}>{errorRate}%</div>
             </div>
-            <div className="border border-white/10 bg-black p-4">
+            <div className="rounded-[24px] border border-white/8 bg-[#111111] p-4">
               <div className="text-xs text-zinc-500">Critical</div>
               <div className="mt-1 text-3xl font-black text-red-300">{criticalCount}</div>
             </div>
           </div>
 
           <section className="mt-8 grid gap-4 lg:grid-cols-2">
-            <div className="border border-white/10 bg-black p-5">
+            <div className="rounded-[28px] border border-white/8 bg-[#111111] p-5">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Failure pattern leaderboard</h2>
                 <span className="text-xs text-zinc-500">{pendingCalls} pending</span>
@@ -147,7 +147,7 @@ export default async function AgentPage({ params }: { params: { agentId: string 
                   <div key={pattern.error_type} className="border border-white/10 px-3 py-3 text-xs">
                     <div className="flex items-center justify-between gap-3">
                       <span className="font-bold text-white">{errorLabel(pattern.error_type)}</span>
-                      <span className={pattern.critical_count > 0 ? severityText("critical") : "text-emerald-300"}>{pattern.count}</span>
+                      <span className={pattern.critical_count > 0 ? severityText("critical") : "text-orange-100"}>{pattern.count}</span>
                     </div>
                     {pattern.example_line ? <div className="mt-2 text-zinc-400">{pattern.example_line}</div> : null}
                   </div>
@@ -156,7 +156,7 @@ export default async function AgentPage({ params }: { params: { agentId: string 
               </div>
             </div>
 
-            <div className="border border-white/10 bg-black p-5">
+            <div className="rounded-[28px] border border-white/8 bg-[#111111] p-5">
               <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Worst recent calls</h2>
               <div className="mt-4 divide-y divide-white/10">
                 {callsWithErrors.map((call) => {
@@ -181,7 +181,7 @@ export default async function AgentPage({ params }: { params: { agentId: string 
           <section className="mt-8">
             <h2 className="mb-3 text-xl font-black text-white">Transcript-backed errors</h2>
             {errors.length === 0 ? (
-              <div className="border border-white/10 bg-black p-6 text-sm text-zinc-400">No analyzed errors yet.</div>
+              <div className="rounded-[28px] border border-white/8 bg-[#111111] p-6 text-sm text-zinc-400">No analyzed errors yet.</div>
             ) : (
               <div className="grid gap-4">
                 {errors.slice(0, 30).map((error) => {
@@ -202,26 +202,26 @@ export default async function AgentPage({ params }: { params: { agentId: string 
         </section>
 
         <aside className="grid content-start gap-4">
-          <section className="border border-white/10 bg-black p-5">
+          <section className="rounded-[28px] border border-white/8 bg-[#111111] p-5">
             <h2 className="text-lg font-black text-white">Error leaderboard</h2>
             <div className="mt-4 grid gap-2">
               {topPatterns.map((pattern) => (
                 <div key={pattern.error_type} className="flex items-center justify-between border border-white/10 p-3 text-xs">
                   <span>{errorLabel(pattern.error_type)}</span>
-                  <span className={pattern.critical_count > 0 ? severityText("critical") : "text-emerald-300"}>{pattern.count}</span>
+                  <span className={pattern.critical_count > 0 ? severityText("critical") : "text-orange-100"}>{pattern.count}</span>
                 </div>
               ))}
               {topPatterns.length === 0 ? <div className="text-sm text-zinc-500">No failures yet.</div> : null}
             </div>
           </section>
-          <section className="border border-white/10 bg-black p-5">
+          <section className="rounded-[28px] border border-white/8 bg-[#111111] p-5">
             <h2 className="text-lg font-black text-white">Patches</h2>
             <div className="mt-4 grid gap-2">
               {patches.map((patch) => (
                 <div key={patch.id} className="border border-white/10 p-3 text-xs">
                   <div className="font-bold text-white">{patch.error_type}</div>
                   <div className="mt-1 text-zinc-500">{patch.status}</div>
-                  <div className="mt-2 text-emerald-300">
+                  <div className="mt-2 text-orange-100">
                     {patch.before_rate ?? "-"}% to {patch.after_rate ?? "-"}%
                   </div>
                 </div>

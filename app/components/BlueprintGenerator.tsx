@@ -40,13 +40,13 @@ export function BlueprintGenerator() {
 
   return (
     <section className="grid gap-5">
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-[28px] border border-white/8 bg-[#111111] p-5">
         <label className="grid gap-2 text-xs uppercase tracking-[0.16em] text-zinc-400">
           Agent type
           <select
             value={agentType}
             onChange={(event) => setAgentType(event.target.value)}
-            className="border border-white/15 bg-black px-3 py-2 text-sm text-white"
+            className="rounded-2xl border border-orange-300/15 bg-[#181311] px-4 py-3 text-sm text-white outline-none"
           >
             <option value="sales">sales</option>
             <option value="debt_collection">debt_collection</option>
@@ -58,18 +58,18 @@ export function BlueprintGenerator() {
           type="button"
           onClick={generate}
           disabled={busy}
-          className="border border-emerald-300 bg-emerald-300 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-black disabled:opacity-50"
+          className="rounded-full border border-orange-300 bg-orange-300 px-5 py-3 text-xs font-black uppercase tracking-[0.14em] text-black disabled:opacity-50"
         >
           Generate Blueprint
         </button>
         {status ? <span className="text-xs text-zinc-400">{status}</span> : null}
-        {meta ? <span className="text-xs text-emerald-300">{meta}</span> : null}
+        {meta ? <span className="text-xs text-orange-100">{meta}</span> : null}
       </div>
       <textarea
         value={prompt}
         readOnly
         placeholder="Generated prompt appears here."
-        className="min-h-[620px] w-full border border-white/10 bg-black p-5 text-sm leading-6 text-zinc-100 outline-none"
+        className="min-h-[620px] w-full rounded-[28px] border border-white/8 bg-[#111111] p-5 text-sm leading-7 text-zinc-100 outline-none"
       />
     </section>
   );

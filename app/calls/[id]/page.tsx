@@ -60,11 +60,11 @@ export default async function CallDetailPage({ params }: { params: { id: string 
         <Link href={`/dashboard/${encodeURIComponent(call.agent_id)}`} className="text-zinc-500 hover:text-white">{call.agent_name ?? call.agent_id}</Link>
       </div>
 
-      <section className="mb-6 border border-white/10 bg-black p-5">
+      <section className="mb-6 rounded-[28px] border border-white/8 bg-[#111111] p-5">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className={errors.length > 0 ? severityText(critical > 0 ? "critical" : "high") : call.analysis_status === "complete" ? "text-emerald-300" : "text-yellow-300"}>{status}</span>
+              <span className={errors.length > 0 ? severityText(critical > 0 ? "critical" : "high") : call.analysis_status === "complete" ? "text-orange-100" : "text-yellow-300"}>{status}</span>
               <span className="text-xs text-zinc-600">duration {formatDuration(call.duration_seconds)}</span>
               <span className="text-xs text-zinc-600">{new Date(call.created_at).toLocaleString()}</span>
               {call.end_reason ? <span className="text-xs text-zinc-600">ended {call.end_reason}</span> : null}
@@ -73,20 +73,20 @@ export default async function CallDetailPage({ params }: { params: { id: string 
             <div className="mt-2 break-all text-xs text-zinc-500">{call.id}</div>
             {analysis?.summary ? <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-300">{analysis.summary}</p> : null}
           </div>
-          <div className="grid grid-cols-4 gap-2 text-center text-xs">
-            <div className="border border-white/10 px-4 py-3">
+          <div className="grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-4">
+            <div className="rounded-[20px] border border-white/10 px-4 py-3">
               <div className="text-zinc-500">Messages</div>
               <div className="mt-1 text-xl font-black text-white">{lines.length}</div>
             </div>
-            <div className="border border-white/10 px-4 py-3">
+            <div className="rounded-[20px] border border-white/10 px-4 py-3">
               <div className="text-zinc-500">Tools</div>
               <div className="mt-1 text-xl font-black text-white">{toolRows.length}</div>
             </div>
-            <div className="border border-white/10 px-4 py-3">
+            <div className="rounded-[20px] border border-white/10 px-4 py-3">
               <div className="text-zinc-500">Errors</div>
               <div className="mt-1 text-xl font-black text-white">{errors.length}</div>
             </div>
-            <div className="border border-white/10 px-4 py-3">
+            <div className="rounded-[20px] border border-white/10 px-4 py-3">
               <div className="text-zinc-500">Critical</div>
               <div className="mt-1 text-xl font-black text-red-300">{critical}</div>
             </div>
@@ -95,10 +95,10 @@ export default async function CallDetailPage({ params }: { params: { id: string 
       </section>
 
       {recordingUrl ? (
-        <section className="mb-6 border border-white/10 bg-black p-5">
+        <section className="mb-6 rounded-[28px] border border-white/8 bg-[#111111] p-5">
           <div className="mb-3 flex items-center gap-2">
             <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Recording</h2>
-            <span className="h-2 w-2 rounded-full bg-emerald-300" />
+            <span className="h-2 w-2 rounded-full bg-orange-300" />
           </div>
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <audio controls src={recordingUrl} className="w-full" />
@@ -106,7 +106,7 @@ export default async function CallDetailPage({ params }: { params: { id: string 
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="border border-white/10 bg-black">
+        <section className="overflow-hidden rounded-[28px] border border-white/8 bg-[#111111]">
           <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
             <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Transcript</h2>
             <span className="text-xs text-zinc-500">red = failed agent turn</span>
@@ -121,10 +121,10 @@ export default async function CallDetailPage({ params }: { params: { id: string 
         </section>
 
         <aside className="space-y-4">
-          <section className="border border-white/10 bg-black p-5">
+          <section className="rounded-[28px] border border-white/8 bg-[#111111] p-5">
             <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Analysis summary</h2>
             {errors.length === 0 ? (
-              <div className="mt-4 border border-emerald-300/20 bg-emerald-950/10 p-4 text-sm text-emerald-200">
+              <div className="mt-4 rounded-[22px] border border-orange-300/20 bg-[#18110d] p-4 text-sm text-orange-100">
                 {call.analysis_status === "complete" ? "No material failures detected for this call." : "Call not analyzed yet. Auto pipeline will pick it up."}
               </div>
             ) : (
@@ -135,7 +135,7 @@ export default async function CallDetailPage({ params }: { params: { id: string 
                 }, {})).map(([type, count]) => (
                   <div key={type} className="flex items-center justify-between border border-white/10 px-3 py-2 text-xs">
                     <span>{errorLabel(type)}</span>
-                    <span className="text-emerald-300">{count}</span>
+                    <span className="text-orange-100">{count}</span>
                   </div>
                 ))}
               </div>
@@ -143,19 +143,19 @@ export default async function CallDetailPage({ params }: { params: { id: string 
             {analysis?.goal_outcome ? (
               <div className="mt-4 border border-white/10 bg-zinc-950 p-3 text-xs text-zinc-400">
                 Goal outcome: <span className="text-white">{analysis.goal_outcome}</span>
-                {analysis.goal_achieved === true ? <span className="ml-2 text-emerald-300">achieved</span> : null}
+                {analysis.goal_achieved === true ? <span className="ml-2 text-orange-100">achieved</span> : null}
               </div>
             ) : null}
           </section>
 
-          <section className="border border-white/10 bg-black p-5">
+          <section className="rounded-[28px] border border-white/8 bg-[#111111] p-5">
             <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Tool activity</h2>
             <div className="mt-4 grid gap-2">
               {toolRows.map((tool, index) => (
-                <div key={`${tool.tool_name}-${tool.invocation_time ?? index}`} className="border border-white/10 p-3 text-xs">
+                <div key={`${tool.tool_name}-${tool.invocation_time ?? index}`} className="rounded-[20px] border border-white/10 p-3 text-xs">
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-black text-white">{tool.tool_name}</span>
-                    <span className={tool.status === "error" ? "text-red-300" : "text-emerald-300"}>{tool.status ?? "ok"}</span>
+                    <span className={tool.status === "error" ? "text-red-300" : "text-orange-100"}>{tool.status ?? "ok"}</span>
                   </div>
                   {tool.error_message ? <div className="mt-2 text-red-200">{tool.error_message}</div> : null}
                   <div className="mt-2 text-zinc-500">args: {excerpt(tool.parameters)}</div>
@@ -167,7 +167,7 @@ export default async function CallDetailPage({ params }: { params: { id: string 
           </section>
 
           {Array.isArray(analysis?.missed_opportunities) && analysis.missed_opportunities.length > 0 ? (
-            <section className="border border-white/10 bg-black p-5">
+            <section className="rounded-[28px] border border-white/8 bg-[#111111] p-5">
               <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Coaching notes</h2>
               <div className="mt-4 grid gap-2">
                 {analysis.missed_opportunities.slice(0, 6).map((item) => (

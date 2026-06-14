@@ -47,13 +47,13 @@ export function GenerateFixButton({ errorId }: { errorId: string }) {
   }
 
   return (
-    <div className="mt-4 border border-white/10 bg-black/30 p-4">
+    <div className="mt-4 rounded-[24px] border border-white/8 bg-[#161110] p-4">
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={generate}
           disabled={busy}
-          className="border border-emerald-300 bg-emerald-300 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-black disabled:opacity-50"
+          className="rounded-full border border-orange-300 bg-orange-300 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-black disabled:opacity-50"
         >
           Generate Fix
         </button>
@@ -61,7 +61,7 @@ export function GenerateFixButton({ errorId }: { errorId: string }) {
           type="button"
           onClick={simulate}
           disabled={busy || !patch}
-          className="border border-white/15 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-white disabled:opacity-50"
+          className="rounded-full border border-orange-300/20 bg-[#1a1512] px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-white disabled:opacity-50"
         >
           Simulate
         </button>
@@ -69,7 +69,7 @@ export function GenerateFixButton({ errorId }: { errorId: string }) {
           <button
             type="button"
             disabled
-            className="border border-zinc-700 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-zinc-500"
+            className="rounded-full border border-zinc-700 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-zinc-500"
             title="Ultravox mutation disabled. Apply manually."
           >
             Manual Apply
@@ -85,9 +85,9 @@ export function GenerateFixButton({ errorId }: { errorId: string }) {
           </div>
           <div>
             <div className="mb-1 text-zinc-500">Replace</div>
-            <pre className="max-h-52 overflow-auto whitespace-pre-wrap border border-white/10 bg-black p-3 text-emerald-100">{patch.replace_text}</pre>
+            <pre className="max-h-52 overflow-auto whitespace-pre-wrap rounded-2xl border border-orange-300/15 bg-[#110d0c] p-3 text-orange-100">{patch.replace_text}</pre>
           </div>
-          <div className="grid gap-2 border border-white/10 p-3 md:grid-cols-3">
+          <div className="grid gap-2 rounded-2xl border border-white/10 p-3 md:grid-cols-3">
             <div>Before: {patch.before_rate ?? "-"}%</div>
             <div>After: {patch.after_rate ?? "-"}%</div>
             <div>Status: {patch.status}</div>
