@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { synthesizeBlueprint } from "@/lib/blueprint";
+import { MAX_ANALYSIS_SECONDS, MIN_ANALYSIS_SECONDS } from "@/lib/analysis-window";
 import { createServerSupabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -21,12 +22,14 @@ export async function POST(request: Request) {
           .select("*", { count: "exact", head: true })
           .eq("agent_type", agentType)
           .eq("analyzed", true)
-          .gte("duration_seconds", 30),
+          .gte("duration_seconds", MIN_ANALYSIS_SECONDS)
+          .lte("duration_seconds", MAX_ANALYSIS_SECONDS),
         supabase
           .from("call_errors")
           .select("error_type, severity, quote, calls!inner(agent_type, duration_seconds)")
           .eq("calls.agent_type", agentType)
-          .gte("calls.duration_seconds", 30)
+          .gte("calls.duration_seconds", MIN_ANALYSIS_SECONDS)
+          .lte("calls.duration_seconds", MAX_ANALYSIS_SECONDS)
           .limit(500)
       ]);
 

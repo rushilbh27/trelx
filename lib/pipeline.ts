@@ -1,4 +1,12 @@
 import { detectErrorsForCall } from "@/lib/error-detector";
+import {
+  MAX_ANALYSIS_SECONDS,
+  MIN_ANALYSIS_SECONDS,
+  SALES_AI_AGENT_ID,
+  SALES_AI_TARGET_CALLS,
+  TARGET_PROCESSED_CALLS,
+  isEligibleAnalysisDuration
+} from "@/lib/analysis-window";
 import { createServerSupabase } from "@/lib/supabase";
 import {
   enrichCalls,
@@ -16,8 +24,6 @@ import {
 } from "@/lib/ultravox";
 import type { Call, DetectedError } from "@/lib/types";
 
-const MIN_ANALYSIS_SECONDS = 30;
-
 type PipelineSummary = {
   synced: number;
   analyzed: number;
@@ -27,6 +33,29 @@ type PipelineSummary = {
 
 type AnalysisSummary = Omit<PipelineSummary, "synced">;
 type PromptCache = Map<string, string | null>;
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+async function fetchExistingCallIds(callIds: string[]): Promise<Set<string>> {
+  if (callIds.length === 0) return new Set<string>();
+  const supabase = createServerSupabase();
+  const found = new Set<string>();
+  for (const chunk of chunkArray(callIds, 80)) {
+    const { data, error } = await supabase
+      .from("calls")
+      .select("id")
+      .in("id", chunk);
+    if (error) throw error;
+    for (const row of data ?? []) found.add(String(row.id));
+  }
+  return found;
+}
 
 async function runPool<T, R>(
   items: T[],
@@ -67,11 +96,11 @@ function callToRow(call: EnrichedUltravoxCall | (UltravoxCall & { transcript: st
 
 function enhancedCallToRow(call: EnrichedUltravoxCall | (UltravoxCall & { transcript: string; tools: unknown[] })) {
   const base = callToRow(call);
-  const isShort = (base.duration_seconds ?? 0) < MIN_ANALYSIS_SECONDS;
+  const eligible = isEligibleAnalysisDuration(base.duration_seconds);
   return {
     ...base,
-    analyzed: isShort,
-    analysis_status: isShort ? "skipped" : "pending",
+    analyzed: !eligible,
+    analysis_status: eligible ? "pending" : "skipped",
     error_count: 0,
     critical_error_count: 0,
     call_errors: null,
@@ -112,18 +141,28 @@ function callMetadataToRow(call: UltravoxCall) {
 
 function enhancedMetadataRow(call: UltravoxCall) {
   const base = callMetadataToRow(call);
-  const isShort = (base.duration_seconds ?? 0) < MIN_ANALYSIS_SECONDS;
+  const eligible = isEligibleAnalysisDuration(base.duration_seconds);
 
   return {
     ...base,
     transcript: null,
     tool_calls: [],
-    analyzed: isShort,
-    analysis_status: isShort ? "skipped" : "pending",
+    analyzed: !eligible,
+    analysis_status: eligible ? "pending" : "skipped",
     error_count: 0,
     critical_error_count: 0,
     call_errors: null
   };
+}
+
+function pickDemoCalls(calls: UltravoxCall[], targetCount: number): UltravoxCall[] {
+  const eligible = calls.filter((call) => isEligibleAnalysisDuration(parseDurationSeconds(call.billedDuration)));
+  const sales = eligible.filter((call) => (call.agentId ?? call.agent?.agentId ?? null) === SALES_AI_AGENT_ID).slice(0, SALES_AI_TARGET_CALLS);
+  const used = new Set(sales.map((call) => call.callId));
+  const rest = eligible.filter((call) => !used.has(call.callId)).slice(0, Math.max(targetCount - sales.length, 0));
+  return [...sales, ...rest]
+    .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
+    .slice(0, targetCount);
 }
 
 function analysisJson(errors: DetectedError[]) {
@@ -151,13 +190,7 @@ function analysisJson(errors: DetectedError[]) {
 async function upsertCalls(calls: EnrichedUltravoxCall[]) {
   const supabase = createServerSupabase();
   const callIds = calls.map((call) => call.callId);
-  const { data: existingRows, error: existingError } = await supabase
-    .from("calls")
-    .select("id")
-    .in("id", callIds);
-  if (existingError) throw existingError;
-
-  const existingIds = new Set((existingRows ?? []).map((row) => String(row.id)));
+  const existingIds = await fetchExistingCallIds(callIds);
   const newCalls = calls.filter((call) => !existingIds.has(call.callId));
   const existingCalls = calls.filter((call) => existingIds.has(call.callId));
 
@@ -188,13 +221,7 @@ async function upsertCallMetadata(calls: UltravoxCall[]) {
 
   const supabase = createServerSupabase();
   const callIds = calls.map((call) => call.callId);
-  const { data: existingRows, error: existingError } = await supabase
-    .from("calls")
-    .select("id")
-    .in("id", callIds);
-  if (existingError) throw existingError;
-
-  const existingIds = new Set((existingRows ?? []).map((row) => String(row.id)));
+  const existingIds = await fetchExistingCallIds(callIds);
   const newCalls = calls.filter((call) => !existingIds.has(call.callId));
   const existingCalls = calls.filter((call) => existingIds.has(call.callId));
 
@@ -245,30 +272,37 @@ async function saveMessagesAndTools(calls: EnrichedUltravoxCall[]) {
     }))
   );
   if (toolRows.length > 0) {
-    await supabase
-      .from("call_tools")
-      .delete()
-      .in("call_id", calls.map((call) => call.callId));
+    for (const chunk of chunkArray(calls.map((call) => call.callId), 80)) {
+      await supabase
+        .from("call_tools")
+        .delete()
+        .in("call_id", chunk);
+    }
     await supabase.from("call_tools").insert(toolRows);
   }
 }
 
 export async function syncLatestCalls(limit = 100, all = false): Promise<{ synced: number }> {
-  const calls = all ? await listCalls({ all: true }) : await listCalls({ limit });
+  const targetCount = Math.max(1, limit);
+  const calls = all || targetCount >= TARGET_PROCESSED_CALLS
+    ? pickDemoCalls(await listCalls({ all: true }), targetCount >= TARGET_PROCESSED_CALLS ? TARGET_PROCESSED_CALLS : targetCount)
+    : (await listCalls({ limit })).filter((call) => isEligibleAnalysisDuration(parseDurationSeconds(call.billedDuration)));
   if (calls.length === 0) return { synced: 0 };
 
   await upsertCallMetadata(calls);
 
   const supabase = createServerSupabase();
-  const { data: existingRows, error: existingError } = await supabase
-    .from("calls")
-    .select("id, transcript")
-    .in("id", calls.map((call) => call.callId));
-  if (existingError) throw existingError;
-
-  const transcriptById = new Map(
-    (existingRows ?? []).map((row) => [String(row.id), typeof row.transcript === "string" ? row.transcript : null] as const)
-  );
+  const transcriptById = new Map<string, string | null>();
+  for (const chunk of chunkArray(calls.map((call) => call.callId), 80)) {
+    const { data: existingRows, error: existingError } = await supabase
+      .from("calls")
+      .select("id, transcript")
+      .in("id", chunk);
+    if (existingError) throw existingError;
+    for (const row of existingRows ?? []) {
+      transcriptById.set(String(row.id), typeof row.transcript === "string" ? row.transcript : null);
+    }
+  }
   const callsNeedingDetails = calls.filter((call) => {
     const transcript = transcriptById.get(call.callId);
     return !transcript || transcript.trim().length === 0;
@@ -305,7 +339,7 @@ export async function analyzeEligibleCalls(limit = 100): Promise<AnalysisSummary
     .select("id")
     .eq("analyzed", false)
     .or("analysis_status.eq.pending,analysis_status.is.null")
-    .lt("duration_seconds", MIN_ANALYSIS_SECONDS)
+    .or(`duration_seconds.lt.${MIN_ANALYSIS_SECONDS},duration_seconds.gt.${MAX_ANALYSIS_SECONDS}`)
     .limit(500);
   if (shortError) throw shortError;
 
@@ -330,6 +364,7 @@ export async function analyzeEligibleCalls(limit = 100): Promise<AnalysisSummary
     .eq("analyzed", false)
     .or("analysis_status.eq.pending,analysis_status.is.null")
     .gte("duration_seconds", MIN_ANALYSIS_SECONDS)
+    .lte("duration_seconds", MAX_ANALYSIS_SECONDS)
     .not("transcript", "is", null)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -448,7 +483,7 @@ export async function ingestAndAnalyzeCall(callId: string): Promise<PipelineSumm
   }
   await saveMessagesAndTools([{ ...call, messages, transcript, tools }]).catch(() => {});
 
-  if ((row.duration_seconds ?? 0) < MIN_ANALYSIS_SECONDS) {
+  if (!isEligibleAnalysisDuration(row.duration_seconds)) {
     const enhancedShort = await supabase
       .from("calls")
       .update({ analyzed: true, analysis_status: "skipped" })
@@ -470,6 +505,7 @@ export async function reanalyzeRecentCalls(limit = 100, all = false): Promise<An
     .from("calls")
     .select("id")
     .gte("duration_seconds", MIN_ANALYSIS_SECONDS)
+    .lte("duration_seconds", MAX_ANALYSIS_SECONDS)
     .not("transcript", "is", null)
     .order("created_at", { ascending: false });
 
@@ -485,29 +521,31 @@ export async function reanalyzeRecentCalls(limit = 100, all = false): Promise<An
     return { analyzed: 0, errors: 0, skippedShort: 0 };
   }
 
-  const { error: deleteError } = await supabase
-    .from("call_errors")
-    .delete()
-    .in("call_id", callIds);
-  if (deleteError) throw deleteError;
+  for (const chunk of chunkArray(callIds, 80)) {
+    const { error: deleteError } = await supabase
+      .from("call_errors")
+      .delete()
+      .in("call_id", chunk);
+    if (deleteError) throw deleteError;
 
-  const enhancedUpdate = await supabase
-    .from("calls")
-    .update({
-      analyzed: false,
-      analysis_status: "pending",
-      error_count: 0,
-      critical_error_count: 0,
-      call_errors: null
-    })
-    .in("id", callIds);
-  const { error: updateError } = enhancedUpdate.error
-    ? await supabase
-    .from("calls")
-    .update({ analyzed: false })
-        .in("id", callIds)
-    : { error: null };
-  if (updateError) throw updateError;
+    const enhancedUpdate = await supabase
+      .from("calls")
+      .update({
+        analyzed: false,
+        analysis_status: "pending",
+        error_count: 0,
+        critical_error_count: 0,
+        call_errors: null
+      })
+      .in("id", chunk);
+    const { error: updateError } = enhancedUpdate.error
+      ? await supabase
+      .from("calls")
+      .update({ analyzed: false })
+          .in("id", chunk)
+      : { error: null };
+    if (updateError) throw updateError;
+  }
 
   return all ? analyzeAllEligibleCalls(Math.min(limit, 100)) : analyzeEligibleCalls(limit);
 }

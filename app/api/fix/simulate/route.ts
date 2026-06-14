@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { MAX_ANALYSIS_SECONDS, MIN_ANALYSIS_SECONDS } from "@/lib/analysis-window";
 import { simulatePatchOnTranscript } from "@/lib/simulator";
 import { createServerSupabase } from "@/lib/supabase";
 import type { Call, Patch } from "@/lib/types";
@@ -42,7 +43,8 @@ export async function POST(request: Request) {
       .from("calls")
       .select("*")
       .in("id", callIds)
-      .gte("duration_seconds", 30);
+      .gte("duration_seconds", MIN_ANALYSIS_SECONDS)
+      .lte("duration_seconds", MAX_ANALYSIS_SECONDS);
     if (callsError) throw callsError;
 
     const calls = (callsData ?? []) as Call[];

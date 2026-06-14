@@ -72,9 +72,9 @@ export function DashboardActions() {
       }
     }
 
-    runPipeline({ syncLimit: 200, batchSize: 25 });
+    runPipeline({ syncLimit: 400, batchSize: 25 });
     const interval = window.setInterval(() => {
-      runPipeline({ syncLimit: 100, batchSize: 20 });
+      runPipeline({ syncLimit: 80, batchSize: 20 });
     }, 60000);
 
     return () => {

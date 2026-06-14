@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MAX_ANALYSIS_SECONDS, MIN_ANALYSIS_SECONDS } from "@/lib/analysis-window";
 import { createServerSupabase } from "@/lib/supabase";
 import { errorImpact, errorLabel, hasAgentEvidence, severityTone } from "@/lib/error-copy";
 import type { CallError } from "@/lib/types";
@@ -20,7 +21,8 @@ export default async function ErrorsPage() {
   const { data, error } = await supabase
     .from("call_errors")
     .select("*, calls!inner(agent_name, agent_type, duration_seconds, created_at, summary)")
-    .gte("calls.duration_seconds", 30)
+    .gte("calls.duration_seconds", MIN_ANALYSIS_SECONDS)
+    .lte("calls.duration_seconds", MAX_ANALYSIS_SECONDS)
     .order("detected_at", { ascending: false })
     .limit(250);
   if (error) throw error;

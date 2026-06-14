@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ErrorEvidenceCard } from "@/app/components/ErrorEvidenceCard";
+import { MAX_ANALYSIS_SECONDS, MIN_ANALYSIS_SECONDS } from "@/lib/analysis-window";
 import { errorLabel, hasAgentEvidence, severityText } from "@/lib/error-copy";
 import { createServerSupabase } from "@/lib/supabase";
 import { formatDuration, messageRowsToTranscriptLines, parseTranscript } from "@/lib/transcript";
@@ -7,31 +8,22 @@ import type { Call, CallError, CallMessage, Patch } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-type ErrorFrequencyRow = {
-  error_type: string;
-  count: number;
-  critical_count: number;
-  example_call_id: string;
-  example_line: string;
-  agents: string[];
-};
-
 export default async function AgentPage({ params }: { params: { agentId: string } }) {
   const agentId = decodeURIComponent(params.agentId);
   let callRows: unknown[] = [];
   let errorRows: unknown[] = [];
   let patchRows: unknown[] = [];
-  let frequencyRows: unknown[] = [];
   let setupError: string | null = null;
 
   try {
     const supabase = createServerSupabase();
-    const [callsResult, errorsResult, patchesResult, frequencyResult] = await Promise.all([
+    const [callsResult, errorsResult, patchesResult] = await Promise.all([
       supabase
         .from("calls")
         .select("*")
         .eq("agent_id", agentId)
-        .gte("duration_seconds", 30)
+        .gte("duration_seconds", MIN_ANALYSIS_SECONDS)
+        .lte("duration_seconds", MAX_ANALYSIS_SECONDS)
         .order("created_at", { ascending: false })
         .limit(500),
       supabase
@@ -45,18 +37,15 @@ export default async function AgentPage({ params }: { params: { agentId: string 
         .select("*")
         .eq("agent_id", agentId)
         .order("created_at", { ascending: false })
-        .limit(20),
-      supabase.rpc("get_trelx_error_frequency", { p_agent_id: agentId })
+        .limit(20)
     ]);
 
     if (callsResult.error) throw callsResult.error;
     if (errorsResult.error) throw errorsResult.error;
     if (patchesResult.error) throw patchesResult.error;
-    if (frequencyResult.error) throw frequencyResult.error;
     callRows = callsResult.data ?? [];
     errorRows = errorsResult.data ?? [];
     patchRows = patchesResult.data ?? [];
-    frequencyRows = frequencyResult.data ?? [];
   } catch (error) {
     setupError = error instanceof Error ? error.message : String(error);
   }
@@ -65,7 +54,21 @@ export default async function AgentPage({ params }: { params: { agentId: string 
   const eligibleCallIds = new Set(calls.map((call) => call.id));
   const errors = (errorRows as CallError[]).filter((error) => eligibleCallIds.has(error.call_id) && hasAgentEvidence(error.quote));
   const patches = patchRows as Patch[];
-  const topPatterns = (frequencyRows as ErrorFrequencyRow[]).slice(0, 8);
+  const topPatterns = [...errors.reduce((map, error) => {
+    const current = map.get(error.error_type) ?? {
+      error_type: error.error_type,
+      count: 0,
+      critical_count: 0,
+      example_line: error.quote ?? ""
+    };
+    current.count += 1;
+    current.critical_count += error.severity === "critical" ? 1 : 0;
+    if (!current.example_line && error.quote) current.example_line = error.quote;
+    map.set(error.error_type, current);
+    return map;
+  }, new Map<string, { error_type: string; count: number; critical_count: number; example_line: string }>()).values()]
+    .sort((a, b) => b.count - a.count || b.critical_count - a.critical_count)
+    .slice(0, 8);
   const agentName = calls[0]?.agent_name ?? agentId;
   const errorsByCall = new Map<string, CallError[]>();
   for (const error of errors) {

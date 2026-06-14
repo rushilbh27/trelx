@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { inspect } from "node:util";
 import { runInitialPipeline } from "@/lib/pipeline";
 
 export const dynamic = "force-dynamic";
@@ -11,8 +12,9 @@ export async function POST(request: Request) {
     const result = await runInitialPipeline(Number.isFinite(limit) ? limit : 100, all);
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
+    console.error("PIPELINE_ROUTE_ERROR", error);
     return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : String(error) },
+      { ok: false, error: error instanceof Error ? error.message : inspect(error, { depth: 4 }) },
       { status: 500 }
     );
   }

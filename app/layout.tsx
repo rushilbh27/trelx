@@ -30,8 +30,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="hidden items-center gap-1 rounded-full border border-orange-300/12 bg-[#1a1512] p-1 md:flex">
                 {[
                   ["/dashboard", "Dashboard"],
-                  ["/calls", "Calls"],
-                  ["/errors", "Errors"],
                   ["/blueprint", "Blueprint"]
                 ].map(([href, label]) => (
                   <Link
@@ -42,18 +40,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     {label}
                   </Link>
                 ))}
-              </div>
-
-              <div className="hidden items-center gap-3 lg:flex">
-                <span className="rounded-full border border-orange-300/25 bg-orange-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-50">
-                  Live eval loop
-                </span>
-                <Link
-                  href="/dashboard"
-                  className="rounded-full border border-white/10 bg-[#1a1512] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white transition hover:border-orange-300/30 hover:bg-orange-500/10"
-                >
-                  Open workspace
-                </Link>
               </div>
             </nav>
           </header>

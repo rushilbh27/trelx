@@ -1,4 +1,5 @@
 import { gpt4oJson } from "@/lib/openai";
+import { getApplicableStructuredPatch } from "@/lib/fix-specs";
 import type { GeneratedPatch } from "@/lib/types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -143,11 +144,21 @@ function deterministicFallback(input: {
 }
 
 export async function generatePatch(input: {
+  agentId?: string;
   errorType: string;
   reasoning: string;
   quote: string;
   systemPrompt: string;
 }): Promise<GeneratedPatch | null> {
+  if (input.agentId) {
+    const structuredPatch = getApplicableStructuredPatch({
+      agentId: input.agentId,
+      errorType: input.errorType,
+      systemPrompt: input.systemPrompt
+    });
+    if (structuredPatch) return structuredPatch;
+  }
+
   const strictPatch = await gpt4oJson(
     {
       temperature: 0.1,

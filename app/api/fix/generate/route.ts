@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     }
 
     const patch = await generatePatch({
+      agentId: row.agent_id,
       errorType: row.error_type,
       quote: row.quote ?? "",
       reasoning: `Detected ${row.error_type} in real transcript quote.`,

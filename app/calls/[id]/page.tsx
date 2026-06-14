@@ -105,13 +105,13 @@ export default async function CallDetailPage({ params }: { params: { id: string 
         </section>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="overflow-hidden rounded-[28px] border border-white/8 bg-[#111111]">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_440px]">
+        <section className="overflow-hidden rounded-[20px] border border-white/8 bg-[#111111] lg:sticky lg:top-24">
           <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
             <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Transcript</h2>
             <span className="text-xs text-zinc-500">red = failed agent turn</span>
           </div>
-          <div className="max-h-[76vh] space-y-3 overflow-y-auto p-4">
+          <div className="max-h-[calc(100vh-190px)] min-h-[520px] space-y-3 overflow-y-auto p-4">
             {lines.length > 0 ? lines.map((line) => (
               <TranscriptBubble key={`${line.index}-${line.role}-${line.text.slice(0, 12)}`} line={line} quotes={quotes} />
             )) : (
@@ -121,7 +121,11 @@ export default async function CallDetailPage({ params }: { params: { id: string 
         </section>
 
         <aside className="space-y-4">
-          <section className="rounded-[28px] border border-white/8 bg-[#111111] p-5">
+          {errors.map((error) => (
+            <ErrorEvidenceCard key={error.id} error={error} transcriptLines={lines} showFix />
+          ))}
+
+          <section className="rounded-[20px] border border-white/8 bg-[#111111] p-5">
             <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Analysis summary</h2>
             {errors.length === 0 ? (
               <div className="mt-4 rounded-[22px] border border-orange-300/20 bg-[#18110d] p-4 text-sm text-orange-100">
@@ -148,26 +152,27 @@ export default async function CallDetailPage({ params }: { params: { id: string 
             ) : null}
           </section>
 
-          <section className="rounded-[28px] border border-white/8 bg-[#111111] p-5">
-            <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Tool activity</h2>
-            <div className="mt-4 grid gap-2">
-              {toolRows.map((tool, index) => (
-                <div key={`${tool.tool_name}-${tool.invocation_time ?? index}`} className="rounded-[20px] border border-white/10 p-3 text-xs">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-black text-white">{tool.tool_name}</span>
-                    <span className={tool.status === "error" ? "text-red-300" : "text-orange-100"}>{tool.status ?? "ok"}</span>
+          {toolRows.length > 0 ? (
+            <section className="rounded-[20px] border border-white/8 bg-[#111111] p-5">
+              <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Tool activity</h2>
+              <div className="mt-4 grid gap-2">
+                {toolRows.map((tool, index) => (
+                  <div key={`${tool.tool_name}-${tool.invocation_time ?? index}`} className="rounded-xl border border-white/10 p-3 text-xs">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-black text-white">{tool.tool_name}</span>
+                      <span className={tool.status === "error" ? "text-red-300" : "text-orange-100"}>{tool.status ?? "ok"}</span>
+                    </div>
+                    {tool.error_message ? <div className="mt-2 text-red-200">{tool.error_message}</div> : null}
+                    <div className="mt-2 text-zinc-500">args: {excerpt(tool.parameters)}</div>
+                    <div className="mt-1 text-zinc-500">result: {excerpt(tool.result)}</div>
                   </div>
-                  {tool.error_message ? <div className="mt-2 text-red-200">{tool.error_message}</div> : null}
-                  <div className="mt-2 text-zinc-500">args: {excerpt(tool.parameters)}</div>
-                  <div className="mt-1 text-zinc-500">result: {excerpt(tool.result)}</div>
-                </div>
-              ))}
-              {toolRows.length === 0 ? <div className="text-sm text-zinc-500">No tool calls saved for this call.</div> : null}
-            </div>
-          </section>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {Array.isArray(analysis?.missed_opportunities) && analysis.missed_opportunities.length > 0 ? (
-            <section className="rounded-[28px] border border-white/8 bg-[#111111] p-5">
+            <section className="rounded-[20px] border border-white/8 bg-[#111111] p-5">
               <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Coaching notes</h2>
               <div className="mt-4 grid gap-2">
                 {analysis.missed_opportunities.slice(0, 6).map((item) => (
@@ -176,10 +181,6 @@ export default async function CallDetailPage({ params }: { params: { id: string 
               </div>
             </section>
           ) : null}
-
-          {errors.map((error) => (
-            <ErrorEvidenceCard key={error.id} error={error} transcriptLines={lines} showFix />
-          ))}
         </aside>
       </div>
     </main>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MAX_ANALYSIS_SECONDS, MIN_ANALYSIS_SECONDS } from "@/lib/analysis-window";
 import { createServerSupabase } from "@/lib/supabase";
 import { errorLabel, severityText } from "@/lib/error-copy";
 import { formatDuration } from "@/lib/transcript";
@@ -38,6 +39,8 @@ export default async function CallsPage() {
   const { data, error } = await supabase
     .from("calls")
     .select("*")
+    .gte("duration_seconds", MIN_ANALYSIS_SECONDS)
+    .lte("duration_seconds", MAX_ANALYSIS_SECONDS)
     .order("created_at", { ascending: false })
     .limit(250);
 
