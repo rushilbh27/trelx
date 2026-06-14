@@ -6,15 +6,17 @@ import { createServerSupabase } from "@/lib/supabase";
 import { errorLabel, hasAgentEvidence, severityText } from "@/lib/error-copy";
 import { formatDuration, parseTranscript } from "@/lib/transcript";
 import type { Call, CallError } from "@/lib/types";
+import type { TranscriptLine } from "@/lib/transcript";
 
 export const dynamic = "force-dynamic";
 
 export default async function CallDetailPage({ params }: { params: { id: string } }) {
   const callId = decodeURIComponent(params.id);
   const supabase = createServerSupabase();
-  const [callResult, errorsResult] = await Promise.all([
+  const [callResult, errorsResult, messagesResult] = await Promise.all([
     supabase.from("calls").select("*").eq("id", callId).single(),
-    supabase.from("call_errors").select("*").eq("call_id", callId).order("detected_at", { ascending: false })
+    supabase.from("call_errors").select("*").eq("call_id", callId).order("detected_at", { ascending: false }),
+    supabase.from("call_messages").select("role,text,ordinal").eq("call_id", callId).order("ordinal", { ascending: true })
   ]);
 
   if (callResult.error || !callResult.data) notFound();
@@ -22,7 +24,15 @@ export default async function CallDetailPage({ params }: { params: { id: string 
 
   const call = callResult.data as Call;
   const errors = ((errorsResult.data ?? []) as CallError[]).filter((error) => hasAgentEvidence(error.quote));
-  const lines = parseTranscript(call.transcript);
+  const messageRows = messagesResult.error ? [] : (messagesResult.data ?? []) as Array<{ role: string; text: string; ordinal: number }>;
+  const lines: TranscriptLine[] = messageRows.length > 0
+    ? messageRows.map((message) => ({
+        index: message.ordinal,
+        role: message.role === "Agent" || message.role === "Tool" ? message.role : "User",
+        text: message.text,
+        raw: `[${message.ordinal}] ${message.role}: ${message.text}`
+      }))
+    : parseTranscript(call.transcript);
   const quotes = errors.map((error) => error.quote);
   const critical = errors.filter((error) => error.severity === "critical").length;
   const status = !call.analyzed ? "pending" : errors.length === 0 ? "clean" : `${errors.length} error${errors.length === 1 ? "" : "s"}`;

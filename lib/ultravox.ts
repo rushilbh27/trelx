@@ -16,9 +16,13 @@ export type UltravoxCall = {
 export type UltravoxMessage = {
   role: string;
   text: string;
+  invocationId?: string;
+  toolName?: string;
+  errorDetails?: string;
   callStageMessageIndex?: number;
   medium?: string;
   callStageId?: string;
+  metadata?: Record<string, unknown>;
 };
 
 export type UltravoxTool = {
@@ -177,7 +181,7 @@ export function formatTranscript(messages: UltravoxMessage[]): string {
 
 export async function getCallMessages(callId: string): Promise<UltravoxMessage[]> {
   return fetchPaginated<UltravoxMessage>(
-    `${ULTRAVOX_API_URL}/calls/${callId}/messages?limit=100`,
+    `${ULTRAVOX_API_URL}/calls/${callId}/messages?mode=in_call&pageSize=100`,
     25
   );
 }

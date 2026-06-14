@@ -13,6 +13,14 @@ export type Call = {
   duration_seconds: number | null;
   created_at: string;
   analyzed: boolean;
+  analysis_status?: "pending" | "analyzing" | "complete" | "skipped" | "error" | null;
+  error_count?: number | null;
+  critical_error_count?: number | null;
+  call_errors?: unknown;
+  end_reason?: string | null;
+  ended_at?: string | null;
+  raw_data?: unknown;
+  prompt_hash?: string | null;
 };
 
 export type CallError = {
