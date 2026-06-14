@@ -11,6 +11,7 @@ type AgentStats = {
   agent_type: string;
   calls: number;
   errors: number;
+  errorCallIds: Set<string>;
   critical: number;
   errorRate: number;
   lastCall: string;
@@ -61,6 +62,7 @@ export default async function DashboardPage() {
       agent_type: call.agent_type ?? "unknown",
       calls: 0,
       errors: 0,
+      errorCallIds: new Set<string>(),
       critical: 0,
       errorRate: 0,
       lastCall: call.created_at
@@ -74,13 +76,14 @@ export default async function DashboardPage() {
     const existing = stats.get(error.agent_id);
     if (!existing) continue;
     existing.errors += 1;
+    existing.errorCallIds.add(error.call_id);
     if (error.severity === "critical") existing.critical += 1;
   }
 
   const agents = [...stats.values()]
     .map((agent) => ({
       ...agent,
-      errorRate: agent.calls === 0 ? 0 : Math.round((agent.errors / agent.calls) * 100)
+      errorRate: agent.calls === 0 ? 0 : Math.round((agent.errorCallIds.size / agent.calls) * 100)
     }))
     .sort((a, b) => b.errorRate - a.errorRate);
 
