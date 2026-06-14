@@ -14,8 +14,8 @@ export function DashboardActions() {
     didRun.current = true;
 
     async function runPipeline() {
-      setStatus("syncing + analyzing latest 100");
-      const response = await fetch("/api/pipeline?limit=100", { method: "POST" });
+      setStatus("syncing + analyzing latest 500");
+      const response = await fetch("/api/pipeline?limit=500", { method: "POST" });
       const data = (await response.json()) as {
         ok?: boolean;
         synced?: number;

@@ -6,6 +6,8 @@ import {
   getCallMessages,
   getCallTools,
   getCalls,
+  getAgentDisplayName,
+  getAgentPrompt,
   inferAgentType,
   parseDurationSeconds,
   type EnrichedUltravoxCall,
@@ -21,6 +23,8 @@ type PipelineSummary = {
   errors: number;
   skippedShort: number;
 };
+
+type PromptCache = Map<string, string | null>;
 
 async function runPool<T, R>(
   items: T[],
@@ -44,13 +48,13 @@ async function runPool<T, R>(
 
 function callToRow(call: EnrichedUltravoxCall | (UltravoxCall & { transcript: string; tools: unknown[] })) {
   const agentId = call.agentId ?? call.agent?.agentId ?? "unknown";
-  const agentName = call.agent?.name ?? null;
+  const agentName = getAgentDisplayName(agentId, call.agent?.name ?? null, call.systemPrompt ?? null);
 
   return {
     id: call.callId,
     agent_id: agentId,
     agent_name: agentName,
-    agent_type: inferAgentType(agentName),
+    agent_type: inferAgentType(agentName, agentId),
     transcript: call.transcript,
     summary: call.shortSummary ?? null,
     tool_calls: call.tools,
@@ -71,6 +75,19 @@ export async function syncLatestCalls(limit = 100): Promise<{ synced: number }> 
   }
 
   return { synced: rows.length };
+}
+
+async function loadAgentPrompts(calls: Call[]): Promise<PromptCache> {
+  const agentIds = [...new Set(calls.map((call) => call.agent_id).filter((id) => id !== "unknown"))];
+  const entries = await runPool(agentIds, 3, async (agentId) => {
+    try {
+      const { systemPrompt } = await getAgentPrompt(agentId);
+      return [agentId, systemPrompt] as const;
+    } catch {
+      return [agentId, null] as const;
+    }
+  });
+  return new Map(entries);
 }
 
 export async function analyzeEligibleCalls(limit = 100): Promise<Omit<PipelineSummary, "synced">> {
@@ -103,10 +120,12 @@ export async function analyzeEligibleCalls(limit = 100): Promise<Omit<PipelineSu
   if (error) throw error;
 
   const typedCalls = (calls ?? []) as Call[];
+  const promptCache = await loadAgentPrompts(typedCalls);
   const summaries = await runPool(typedCalls, 3, async (call) => {
     const detected = await detectErrorsForCall({
       agentType: call.agent_type,
-      transcript: call.transcript ?? ""
+      transcript: call.transcript ?? "",
+      systemPrompt: promptCache.get(call.agent_id) ?? null
     });
 
     if (detected.length > 0) {
@@ -166,4 +185,35 @@ export async function ingestAndAnalyzeCall(callId: string): Promise<PipelineSumm
 
   const analysis = await analyzeEligibleCalls(1);
   return { call_id: callId, synced: 1, ...analysis };
+}
+
+export async function reanalyzeRecentCalls(limit = 100): Promise<Omit<PipelineSummary, "synced">> {
+  const supabase = createServerSupabase();
+  const { data: calls, error } = await supabase
+    .from("calls")
+    .select("id")
+    .gte("duration_seconds", MIN_ANALYSIS_SECONDS)
+    .not("transcript", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+
+  const callIds = (calls ?? []).map((call) => String(call.id));
+  if (callIds.length === 0) {
+    return { analyzed: 0, errors: 0, skippedShort: 0 };
+  }
+
+  const { error: deleteError } = await supabase
+    .from("call_errors")
+    .delete()
+    .in("call_id", callIds);
+  if (deleteError) throw deleteError;
+
+  const { error: updateError } = await supabase
+    .from("calls")
+    .update({ analyzed: false })
+    .in("id", callIds);
+  if (updateError) throw updateError;
+
+  return analyzeEligibleCalls(limit);
 }

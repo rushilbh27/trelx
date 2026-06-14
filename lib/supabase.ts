@@ -6,12 +6,16 @@ function requireEnv(name: string): string {
   return value;
 }
 
+const noStoreFetch: typeof fetch = (input, init) =>
+  fetch(input, { ...init, cache: "no-store" });
+
 export function createServerSupabase() {
   return createClient(
     requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
     {
-      auth: { persistSession: false }
+      auth: { persistSession: false },
+      global: { fetch: noStoreFetch }
     }
   );
 }
@@ -19,6 +23,9 @@ export function createServerSupabase() {
 export function createBrowserSupabase() {
   return createClient(
     requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    {
+      global: { fetch: noStoreFetch }
+    }
   );
 }
