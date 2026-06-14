@@ -27,20 +27,20 @@ const loopSteps = [
 
 export default function Home() {
   return (
-    <main className="overflow-hidden">
+    <main className="overflow-hidden bg-[radial-gradient(circle_at_50%_14%,rgba(255,114,30,0.18),transparent_20%),radial-gradient(circle_at_100%_55%,rgba(255,114,30,0.16),transparent_18%),linear-gradient(180deg,#060606_0%,#090909_100%)]">
       <section className="relative">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(249,115,22,0.22),transparent_24%),radial-gradient(circle_at_50%_24%,rgba(249,115,22,0.1),transparent_42%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(249,115,22,0.18),transparent_20%),radial-gradient(circle_at_50%_24%,rgba(249,115,22,0.08),transparent_36%)]" />
         <div className="pointer-events-none absolute left-1/2 top-28 h-[34rem] w-[34rem] -translate-x-1/2 rounded-full border border-orange-300/10" />
         <div className="pointer-events-none absolute left-1/2 top-36 h-[28rem] w-[28rem] -translate-x-1/2 rounded-full border border-orange-300/10" />
         <div className="pointer-events-none absolute left-1/2 top-44 h-[22rem] w-[22rem] -translate-x-1/2 rounded-full border border-orange-300/10" />
 
         <div className="mx-auto max-w-[1500px] px-4 pb-20 pt-16 md:px-6 md:pb-28 md:pt-24">
           <div className="mx-auto max-w-4xl text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-orange-400/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-orange-100">
+            <div className="inline-flex items-center gap-2 rounded-full border border-orange-300/20 bg-orange-500/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-orange-100">
               <span className="h-2 w-2 rounded-full bg-orange-300" />
               Production eval engine for Ultravox
             </div>
-            <h1 className="mt-8 font-[family-name:var(--font-display)] text-5xl font-black leading-[0.92] tracking-[-0.04em] text-white md:text-7xl">
+            <h1 className="mt-8 font-[family-name:var(--font-display)] text-5xl font-black leading-[0.9] tracking-[-0.04em] text-white md:text-7xl">
               Turn live voice calls into a sharper agent every week.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-zinc-300 md:text-lg">
@@ -64,12 +64,12 @@ export default function Home() {
 
           <div className="relative mx-auto mt-16 grid max-w-6xl gap-4 lg:grid-cols-[0.8fr_1.1fr_0.8fr] lg:items-center">
             <div className="grid gap-4">
-              <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.4)] backdrop-blur">
+              <div className="rounded-[28px] border border-white/8 bg-[#121212] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.4)] backdrop-blur">
                 <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Failure queue</div>
                 <div className="mt-3 text-3xl font-black text-white">37</div>
                 <div className="mt-2 text-sm text-zinc-400">Transcript-backed issues ready for triage and simulation.</div>
               </div>
-              <div className="rounded-[28px] border border-white/10 bg-black/60 p-5">
+              <div className="rounded-[28px] border border-white/8 bg-[#121212] p-5">
                 <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Best proof line</div>
                 <p className="mt-3 text-sm leading-6 text-zinc-300">
                   “Customer pushed back, but agent continued the script instead of handling the objection.”
@@ -77,8 +77,8 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-[0_40px_120px_rgba(0,0,0,0.5)]">
-              <div className="rounded-[28px] border border-white/8 bg-black/70 p-5">
+            <div className="rounded-[36px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] p-4 shadow-[0_40px_120px_rgba(0,0,0,0.5)]">
+              <div className="rounded-[28px] border border-white/8 bg-[#101010] p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-[10px] uppercase tracking-[0.22em] text-orange-100">Trelx control room</div>
@@ -95,14 +95,14 @@ export default function Home() {
                     ["Analyzed", "223"],
                     ["Critical", "5"]
                   ].map(([label, value]) => (
-                    <div key={label} className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+                    <div key={label} className="rounded-3xl border border-white/8 bg-white/[0.02] p-4">
                       <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">{label}</div>
                       <div className="mt-2 text-3xl font-black text-white">{value}</div>
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-6 rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_45%),rgba(255,255,255,0.02)] p-5">
+                <div className="mt-6 rounded-[28px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.16),transparent_45%),rgba(255,255,255,0.01)] p-5">
                   <div className="flex items-center justify-between">
                     <div className="text-xs uppercase tracking-[0.22em] text-zinc-500">Recent pressure</div>
                     <div className="text-xs text-orange-100">proof before patch</div>
@@ -117,11 +117,11 @@ export default function Home() {
             </div>
 
             <div className="grid gap-4">
-              <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.4)] backdrop-blur">
+              <div className="rounded-[28px] border border-white/8 bg-[#121212] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.4)] backdrop-blur">
                 <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Blueprint engine</div>
                 <div className="mt-3 font-[family-name:var(--font-display)] text-2xl font-black text-white">From scattered misses to one hardened prompt.</div>
               </div>
-              <div className="rounded-[28px] border border-white/10 bg-black/60 p-5">
+              <div className="rounded-[28px] border border-white/8 bg-[#121212] p-5">
                 <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Simulation delta</div>
                 <div className="mt-3 flex items-end gap-3">
                   <span className="text-3xl font-black text-red-300">100%</span>
@@ -138,7 +138,7 @@ export default function Home() {
       <section className="mx-auto max-w-[1500px] px-4 pb-8 md:px-6">
         <div className="grid gap-5 lg:grid-cols-3">
           {proofCards.map((card) => (
-            <div key={card.title} className="rounded-[32px] border border-white/10 bg-white/[0.03] p-7">
+            <div key={card.title} className="rounded-[32px] border border-white/8 bg-[#101010] p-7">
               <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-orange-100">{card.eyebrow}</div>
               <h2 className="mt-4 font-[family-name:var(--font-display)] text-3xl font-black leading-tight text-white">{card.title}</h2>
               <p className="mt-4 text-sm leading-7 text-zinc-400">{card.body}</p>
@@ -162,7 +162,7 @@ export default function Home() {
 
         <div className="grid gap-4 lg:grid-cols-4">
           {loopSteps.map(([index, title, body]) => (
-            <div key={index} className="rounded-[32px] border border-white/10 bg-black/45 p-6">
+            <div key={index} className="rounded-[32px] border border-white/8 bg-[#101010] p-6">
               <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-500">{index}</div>
               <h3 className="mt-6 font-[family-name:var(--font-display)] text-2xl font-black text-white">{title}</h3>
               <p className="mt-4 text-sm leading-7 text-zinc-400">{body}</p>

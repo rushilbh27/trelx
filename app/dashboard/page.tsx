@@ -119,11 +119,11 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="px-4 py-6 md:px-6">
-      <div className="mx-auto max-w-[1520px] rounded-[36px] border border-black/50 bg-[linear-gradient(180deg,rgba(27,27,27,0.98),rgba(18,18,18,0.98))] shadow-[0_40px_140px_rgba(0,0,0,0.45)]">
+    <main className="bg-[radial-gradient(circle_at_12%_8%,rgba(255,122,24,0.18),transparent_18%),radial-gradient(circle_at_100%_10%,rgba(255,122,24,0.12),transparent_20%),linear-gradient(180deg,#060606_0%,#0b0b0b_100%)] px-4 py-6 md:px-6">
+      <div className="mx-auto max-w-[1520px] rounded-[36px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,18,0.98),rgba(14,14,14,0.98))] shadow-[0_40px_140px_rgba(0,0,0,0.45)]">
         <div className="grid gap-0 lg:grid-cols-[270px_minmax(0,1fr)]">
-          <aside className="border-b border-white/10 p-5 lg:min-h-[calc(100vh-126px)] lg:border-b-0 lg:border-r">
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+          <aside className="border-b border-white/8 p-5 lg:min-h-[calc(100vh-126px)] lg:border-b-0 lg:border-r">
+            <div className="rounded-[28px] border border-white/8 bg-[#131313] p-5">
               <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-orange-100">Operator view</div>
               <div className="mt-3 font-[family-name:var(--font-display)] text-3xl font-black text-white">Dashboard</div>
               <p className="mt-3 text-sm leading-7 text-zinc-400">
@@ -143,8 +143,8 @@ export default async function DashboardPage() {
                   href={href}
                   className={`rounded-[22px] border px-4 py-3 transition ${
                     href === "/dashboard"
-                      ? "border-orange-300/25 bg-orange-400/10 text-white"
-                      : "border-white/10 bg-white/[0.03] text-zinc-300 hover:border-white/20 hover:bg-white/[0.05]"
+                      ? "border-orange-300/35 bg-orange-500/10 text-white"
+                      : "border-white/8 bg-[#131313] text-zinc-300 hover:border-orange-300/18 hover:bg-[#171311]"
                   }`}
                 >
                   <div className="text-sm font-semibold">{label}</div>
@@ -154,12 +154,12 @@ export default async function DashboardPage() {
             </div>
 
             <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-1">
-              <div className="rounded-[24px] border border-white/10 bg-black/40 p-4">
+              <div className="rounded-[24px] border border-white/8 bg-[#121212] p-4">
                 <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Calls with errors</div>
                 <div className="mt-2 text-3xl font-black text-white">{callsWithErrors}</div>
                 <div className="mt-2 text-xs text-zinc-400">{errorPressure}% of analyzed calls need attention.</div>
               </div>
-              <div className="rounded-[24px] border border-white/10 bg-black/40 p-4">
+              <div className="rounded-[24px] border border-white/8 bg-[#121212] p-4">
                 <div className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Autopilot</div>
                 <div className="mt-2 text-2xl font-black text-orange-100">ON</div>
                 <div className="mt-2 text-xs text-zinc-400">Initial sync capped to 200 calls for demo stability.</div>
@@ -169,33 +169,33 @@ export default async function DashboardPage() {
 
           <section className="p-5 md:p-6">
             <div className="mb-4 grid gap-4 xl:grid-cols-[1fr_auto]">
-              <div className="flex items-center rounded-[26px] border border-white/10 bg-black/35 px-5 py-4">
+              <div className="flex items-center rounded-[26px] border border-white/8 bg-[#121212] px-5 py-4">
                 <div className="mr-3 text-zinc-500">⌕</div>
                 <div>
                   <div className="text-sm text-white">Search agents, calls, and failures</div>
                   <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Use Calls and Errors pages for deeper drill-down</div>
                 </div>
               </div>
-              <div className="flex items-center rounded-[26px] border border-white/10 bg-black/35 px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+              <div className="flex items-center rounded-[26px] border border-white/8 bg-[#121212] px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
                 Snapshot {dateLabel}
               </div>
             </div>
 
             <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-              <section className="overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.22),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-6">
+              <section className="overflow-hidden rounded-[30px] border border-white/8 bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.18),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.01))] p-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="max-w-2xl">
+                  <div className="max-w-[48rem]">
                     <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-orange-100">Control room</div>
-                    <h1 className="mt-3 font-[family-name:var(--font-display)] text-4xl font-black tracking-[-0.03em] text-white md:text-5xl">
+                    <h1 className="mt-3 max-w-[11ch] font-[family-name:var(--font-display)] text-[clamp(2.9rem,5vw,5.4rem)] font-black leading-[0.92] tracking-[-0.04em] text-white">
                       Ship the next prompt from real production pressure.
                     </h1>
-                    <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-300">
+                    <p className="mt-5 max-w-3xl text-base leading-8 text-zinc-300">
                       {worstAgent
                         ? `${worstAgent.agent_name} is currently the noisiest agent at ${worstAgent.error_rate}% error rate. Start there, inspect transcript evidence, then simulate the patch before you touch prod.`
                         : "No agent data yet. Once calls land, this board will surface where to intervene first."}
                     </p>
                   </div>
-                  <div className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+                  <div className="rounded-full border border-white/8 bg-[#171311] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
                     {dateLabel}
                   </div>
                 </div>
@@ -207,7 +207,7 @@ export default async function DashboardPage() {
                     `${criticalErrors} critical flags`,
                     `${pendingCalls} pending`
                   ].map((chip) => (
-                    <div key={chip} className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
+                    <div key={chip} className="rounded-full border border-white/8 bg-[#171311] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-300">
                       {chip}
                     </div>
                   ))}
@@ -219,18 +219,18 @@ export default async function DashboardPage() {
                     <span>{coverage}%</span>
                   </div>
                   <div className="h-3 rounded-full bg-white/[0.06]">
-                    <div className="h-3 rounded-full bg-gradient-to-r from-orange-500 to-orange-200" style={{ width: `${coverage}%` }} />
+                    <div className="h-3 rounded-full bg-gradient-to-r from-orange-500 via-orange-400 to-orange-200" style={{ width: `${coverage}%` }} />
                   </div>
                 </div>
               </section>
 
-              <section className="rounded-[30px] border border-white/10 bg-white/[0.03] p-5">
+              <section className="rounded-[30px] border border-white/8 bg-[#111111] p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Pipeline status</div>
                     <div className="mt-2 font-[family-name:var(--font-display)] text-2xl font-black text-white">Live autopilot</div>
                   </div>
-                  <span className="rounded-full border border-orange-300/25 bg-orange-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-orange-100">
+                  <span className="rounded-full border border-orange-300/25 bg-orange-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-orange-100">
                     Running
                   </span>
                 </div>
@@ -243,7 +243,7 @@ export default async function DashboardPage() {
                     ["Failures", totalErrors, "total transcript-backed issues"],
                     ["Critical share", `${criticalShare}%`, "of all logged errors"]
                   ].map(([label, value, meta]) => (
-                    <div key={label} className="rounded-[24px] border border-white/10 bg-black/35 p-4">
+                    <div key={label} className="rounded-[24px] border border-white/8 bg-[#161616] p-4">
                       <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">{label}</div>
                       <div className="mt-2 text-3xl font-black text-white">{value}</div>
                       <div className="mt-2 text-xs text-zinc-400">{meta}</div>
@@ -254,7 +254,7 @@ export default async function DashboardPage() {
             </div>
 
             <section className="mt-4 grid gap-4 xl:grid-cols-[1.02fr_0.98fr]">
-              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="rounded-[30px] border border-white/8 bg-[#111111] p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="font-[family-name:var(--font-display)] text-2xl font-black text-white">Agent watchlist</h2>
@@ -266,7 +266,7 @@ export default async function DashboardPage() {
                 </div>
                 <div className="mt-5 grid gap-3">
                   {watchlist.map((agent) => (
-                    <Link key={agent.agent_id} href={`/dashboard/${encodeURIComponent(agent.agent_id)}`} className="block rounded-[24px] border border-white/10 bg-black/30 p-4 transition hover:border-orange-300/25">
+                    <Link key={agent.agent_id} href={`/dashboard/${encodeURIComponent(agent.agent_id)}`} className="block rounded-[24px] border border-white/8 bg-[#171717] p-4 transition hover:border-orange-300/25">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="truncate text-sm font-semibold text-white">{agent.agent_name}</div>
@@ -292,7 +292,7 @@ export default async function DashboardPage() {
                 </div>
               </div>
 
-              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="rounded-[30px] border border-white/8 bg-[#111111] p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="font-[family-name:var(--font-display)] text-2xl font-black text-white">Failure stack</h2>
@@ -312,7 +312,7 @@ export default async function DashboardPage() {
                           <span className="text-sm font-black text-orange-100">{count}</span>
                         </div>
                         <div className="h-3 rounded-full bg-white/[0.05]">
-                          <div className="h-3 rounded-full bg-gradient-to-r from-orange-500 to-orange-200" style={{ width: `${width}%` }} />
+                          <div className="h-3 rounded-full bg-gradient-to-r from-orange-500 via-orange-400 to-orange-200" style={{ width: `${width}%` }} />
                         </div>
                       </div>
                     );
@@ -323,7 +323,7 @@ export default async function DashboardPage() {
             </section>
 
             <section className="mt-4">
-              <div className="rounded-[30px] border border-white/10 bg-white/[0.03] p-5">
+              <div className="rounded-[30px] border border-white/8 bg-[#111111] p-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="font-[family-name:var(--font-display)] text-2xl font-black text-white">Latest calls</h2>
@@ -339,7 +339,7 @@ export default async function DashboardPage() {
                       <Link
                         key={call.id}
                         href={`/calls/${encodeURIComponent(call.id)}`}
-                        className="grid gap-3 py-4 md:grid-cols-[1.3fr_0.7fr_90px_110px] md:items-center hover:bg-white/[0.02]"
+                        className="grid gap-3 py-4 md:grid-cols-[minmax(0,1.3fr)_0.7fr_90px_110px] md:items-center hover:bg-white/[0.02]"
                       >
                         <div className="min-w-0">
                           <div className="truncate text-sm font-semibold text-white">{call.summary || call.agent_name || call.id}</div>
@@ -358,7 +358,7 @@ export default async function DashboardPage() {
             </section>
 
             {agents.length === 0 ? (
-              <div className="mt-4 rounded-[30px] border border-white/10 bg-black/50 p-8 text-sm text-zinc-400">
+              <div className="mt-4 rounded-[30px] border border-white/8 bg-[#111111] p-8 text-sm text-zinc-400">
                 No real calls in Supabase yet. Run sync after env vars and schema are ready.
               </div>
             ) : (
@@ -375,7 +375,7 @@ export default async function DashboardPage() {
                     <Link
                       href={`/dashboard/${encodeURIComponent(agent.agent_id)}`}
                       key={agent.agent_id}
-                      className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.01))] p-5 transition hover:border-orange-300/25"
+                      className="overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.025),rgba(255,255,255,0.008))] p-5 transition hover:border-orange-300/25"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div>
@@ -400,7 +400,7 @@ export default async function DashboardPage() {
                           ["Errors", agent.error_count],
                           ["Critical", agent.critical_count]
                         ].map(([label, value]) => (
-                          <div key={label} className="rounded-[22px] border border-white/10 bg-black/35 p-4">
+                          <div key={label} className="rounded-[22px] border border-white/8 bg-[#161616] p-4">
                             <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">{label}</div>
                             <div className="mt-2 text-2xl font-black text-white">{value}</div>
                           </div>
