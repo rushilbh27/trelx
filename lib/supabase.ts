@@ -10,15 +10,12 @@ const noStoreFetch: typeof fetch = (input, init) =>
   fetch(input, { ...init, cache: "no-store" });
 
 export function createServerSupabase() {
-  const ws = require("ws");
-
   return createClient(
     requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
     {
       auth: { persistSession: false },
-      global: { fetch: noStoreFetch },
-      realtime: { transport: ws as unknown as typeof WebSocket }
+      global: { fetch: noStoreFetch }
     }
   );
 }
