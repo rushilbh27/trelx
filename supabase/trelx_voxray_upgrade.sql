@@ -227,18 +227,18 @@ returns table (
 ) language sql stable as $$
   select
     c.agent_id,
-    coalesce(max(c.agent_name), c.agent_id)::text,
-    coalesce(max(c.agent_type), 'unknown')::text,
-    count(*) filter (where c.duration_seconds >= 30)::bigint,
-    count(*) filter (where c.analysis_status = 'complete' and c.duration_seconds >= 30)::bigint,
-    count(*) filter (where c.error_count > 0 and c.duration_seconds >= 30)::bigint,
+    coalesce(max(c.agent_name), c.agent_id)::text as agent_name,
+    coalesce(max(c.agent_type), 'unknown')::text as agent_type,
+    count(*) filter (where c.duration_seconds >= 30)::bigint as total_calls,
+    count(*) filter (where c.analysis_status = 'complete' and c.duration_seconds >= 30)::bigint as analyzed_calls,
+    count(*) filter (where c.error_count > 0 and c.duration_seconds >= 30)::bigint as calls_with_errors,
     round(
       count(*) filter (where c.error_count > 0 and c.duration_seconds >= 30)::numeric /
       nullif(count(*) filter (where c.analysis_status = 'complete' and c.duration_seconds >= 30), 0) * 100,
       1
     ) as error_rate,
-    coalesce(sum(c.error_count) filter (where c.duration_seconds >= 30), 0)::bigint,
-    coalesce(sum(c.critical_error_count) filter (where c.duration_seconds >= 30), 0)::bigint,
+    coalesce(sum(c.error_count) filter (where c.duration_seconds >= 30), 0)::bigint as error_count,
+    coalesce(sum(c.critical_error_count) filter (where c.duration_seconds >= 30), 0)::bigint as critical_count,
     (
       select ce.error_type
       from call_errors ce
@@ -248,7 +248,7 @@ returns table (
       group by ce.error_type
       order by count(*) desc
       limit 1
-    )::text
+    )::text as top_error_type
   from calls c
   group by c.agent_id
   order by calls_with_errors desc, total_calls desc;

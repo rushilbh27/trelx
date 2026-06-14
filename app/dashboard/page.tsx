@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { DashboardActions } from "@/app/components/DashboardActions";
 import { createServerSupabase } from "@/lib/supabase";
-import { errorLabel, hasAgentEvidence, severityText } from "@/lib/error-copy";
+import { errorLabel, severityText } from "@/lib/error-copy";
 import { formatDuration } from "@/lib/transcript";
-import type { Call, CallError } from "@/lib/types";
+import type { Call } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +11,13 @@ type AgentStats = {
   agent_id: string;
   agent_name: string;
   agent_type: string;
-  calls: number;
-  errors: number;
-  errorCallIds: Set<string>;
-  critical: number;
-  errorRate: number;
-  lastCall: string;
+  total_calls: number;
+  analyzed_calls: number;
+  calls_with_errors: number;
+  error_count: number;
+  critical_count: number;
+  error_rate: number;
+  top_error_type: string | null;
 };
 
 function severityClass(severity: string) {
@@ -28,77 +29,57 @@ function severityClass(severity: string) {
 
 export default async function DashboardPage() {
   let callRows: unknown[] = [];
-  let errorRows: unknown[] = [];
+  let agentRows: unknown[] = [];
+  let aggregateRow: Record<string, unknown> | null = null;
+  let errorFreqRows: Array<Record<string, unknown>> = [];
   let setupError: string | null = null;
 
   try {
     const supabase = createServerSupabase();
-    const [callsResult, errorsResult] = await Promise.all([
+    const [callsResult, agentsResult, aggregatesResult, errorFreqResult] = await Promise.all([
       supabase
         .from("calls")
         .select("*")
         .gte("duration_seconds", 30)
         .order("created_at", { ascending: false })
-        .limit(3000),
-      supabase.from("call_errors").select("*").limit(5000)
+        .limit(16),
+      supabase.rpc("get_trelx_agent_error_summary"),
+      supabase.rpc("get_trelx_dashboard_aggregates"),
+      supabase.rpc("get_trelx_error_frequency")
     ]);
 
     if (callsResult.error) throw callsResult.error;
-    if (errorsResult.error) throw errorsResult.error;
+    if (agentsResult.error) throw agentsResult.error;
+    if (aggregatesResult.error) throw aggregatesResult.error;
+    if (errorFreqResult.error) throw errorFreqResult.error;
     callRows = callsResult.data ?? [];
-    errorRows = errorsResult.data ?? [];
+    agentRows = agentsResult.data ?? [];
+    aggregateRow = ((aggregatesResult.data ?? [])[0] as Record<string, unknown> | undefined) ?? null;
+    errorFreqRows = (errorFreqResult.data ?? []) as Array<Record<string, unknown>>;
   } catch (error) {
     setupError = error instanceof Error ? error.message : String(error);
   }
 
   const calls = callRows as Call[];
-  const eligibleCallIds = new Set(calls.map((call) => call.id));
-  const errors = (errorRows as CallError[]).filter((error) => eligibleCallIds.has(error.call_id) && hasAgentEvidence(error.quote));
-  const stats = new Map<string, AgentStats>();
-
-  for (const call of calls) {
-    const existing = stats.get(call.agent_id);
-    const next: AgentStats = existing ?? {
-      agent_id: call.agent_id,
-      agent_name: call.agent_name ?? call.agent_id,
-      agent_type: call.agent_type ?? "unknown",
-      calls: 0,
-      errors: 0,
-      errorCallIds: new Set<string>(),
-      critical: 0,
-      errorRate: 0,
-      lastCall: call.created_at
-    };
-    next.calls += 1;
-    if (new Date(call.created_at) > new Date(next.lastCall)) next.lastCall = call.created_at;
-    stats.set(call.agent_id, next);
-  }
-
-  for (const error of errors) {
-    const existing = stats.get(error.agent_id);
-    if (!existing) continue;
-    existing.errors += 1;
-    existing.errorCallIds.add(error.call_id);
-    if (error.severity === "critical") existing.critical += 1;
-  }
-
-  const agents = [...stats.values()]
-    .map((agent) => ({
-      ...agent,
-      errorRate: agent.calls === 0 ? 0 : Math.round((agent.errorCallIds.size / agent.calls) * 100)
-    }))
-    .sort((a, b) => b.errorRate - a.errorRate);
-
-  const totalCalls = calls.length;
-  const totalErrors = errors.length;
-  const criticalErrors = errors.filter((error) => error.severity === "critical").length;
-  const analyzedCalls = calls.filter((call) => call.analyzed).length;
-  const pendingCalls = calls.filter((call) => !call.analyzed).length;
-  const callsWithErrors = new Set(errors.map((error) => error.call_id)).size;
-  const topErrors = [...errors.reduce<Map<string, number>>((map, error) => {
-    map.set(error.error_type, (map.get(error.error_type) ?? 0) + 1);
-    return map;
-  }, new Map()).entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const agents = (agentRows as AgentStats[]).map((agent) => ({
+    ...agent,
+    total_calls: Number(agent.total_calls),
+    analyzed_calls: Number(agent.analyzed_calls),
+    calls_with_errors: Number(agent.calls_with_errors),
+    error_count: Number(agent.error_count),
+    critical_count: Number(agent.critical_count),
+    error_rate: Number(agent.error_rate)
+  })).sort((a, b) => b.error_rate - a.error_rate || b.critical_count - a.critical_count || b.total_calls - a.total_calls);
+  const totalCalls = Number(aggregateRow?.eligible_calls ?? 0);
+  const totalErrors = Number(aggregateRow?.total_errors ?? 0);
+  const criticalErrors = Number(aggregateRow?.critical_errors ?? 0);
+  const analyzedCalls = Number(aggregateRow?.total_analyzed ?? 0);
+  const pendingCalls = Number(aggregateRow?.pending_calls ?? 0);
+  const callsWithErrors = Number(aggregateRow?.calls_with_errors ?? 0);
+  const topErrors = errorFreqRows
+    .filter((row) => typeof row.error_type === "string")
+    .slice(0, 6)
+    .map((row) => [String(row.error_type), Number(row.count ?? 0)] as const);
   const recentCalls = calls.slice(0, 8);
 
   return (
@@ -150,8 +131,8 @@ export default async function DashboardPage() {
           </div>
           <div className="mt-4 divide-y divide-white/10">
             {recentCalls.map((call) => {
-              const callErrors = errors.filter((error) => error.call_id === call.id);
-              const critical = callErrors.some((error) => error.severity === "critical");
+              const callErrors = call.error_count ?? 0;
+              const critical = (call.critical_error_count ?? 0) > 0;
               return (
                 <Link key={call.id} href={`/calls/${encodeURIComponent(call.id)}`} className="grid grid-cols-[1fr_80px_90px] gap-3 py-3 text-xs hover:bg-white/[0.03]">
                   <div className="min-w-0">
@@ -159,8 +140,8 @@ export default async function DashboardPage() {
                     <div className="mt-1 truncate text-zinc-500">{call.agent_name ?? call.agent_id}</div>
                   </div>
                   <div className="text-zinc-400">{formatDuration(call.duration_seconds)}</div>
-                  <div className={critical ? severityText("critical") : callErrors.length > 0 ? severityText("high") : "text-emerald-300"}>
-                    {call.analyzed ? `${callErrors.length} err` : "pending"}
+                  <div className={critical ? severityText("critical") : callErrors > 0 ? severityText("high") : "text-emerald-300"}>
+                    {call.analysis_status === "complete" ? `${callErrors} err` : call.analysis_status ?? "pending"}
                   </div>
                 </Link>
               );
@@ -200,24 +181,29 @@ export default async function DashboardPage() {
                   <h2 className="text-lg font-black text-white">{agent.agent_name}</h2>
                   <p className="mt-1 text-xs text-zinc-500">{agent.agent_type}</p>
                 </div>
-                <div className={agent.critical > 0 ? severityClass("critical") : "text-emerald-300"}>
-                  {agent.errorRate}%
+                <div className={agent.critical_count > 0 ? severityClass("critical") : "text-emerald-300"}>
+                  {agent.error_rate}%
                 </div>
               </div>
               <div className="mt-6 grid grid-cols-3 gap-2 text-xs">
                 <div className="border border-white/10 p-3">
                   <div className="text-zinc-500">Calls</div>
-                  <div className="mt-1 text-lg text-white">{agent.calls}</div>
+                  <div className="mt-1 text-lg text-white">{agent.total_calls}</div>
                 </div>
                 <div className="border border-white/10 p-3">
                   <div className="text-zinc-500">Errors</div>
-                  <div className="mt-1 text-lg text-white">{agent.errors}</div>
+                  <div className="mt-1 text-lg text-white">{agent.error_count}</div>
                 </div>
                 <div className="border border-white/10 p-3">
                   <div className="text-zinc-500">Critical</div>
-                  <div className="mt-1 text-lg text-red-400">{agent.critical}</div>
+                  <div className="mt-1 text-lg text-red-400">{agent.critical_count}</div>
                 </div>
               </div>
+              {agent.top_error_type ? (
+                <div className="mt-3 border border-white/10 px-3 py-2 text-xs text-zinc-400">
+                  Top issue: <span className="text-white">{errorLabel(agent.top_error_type)}</span>
+                </div>
+              ) : null}
             </Link>
           ))}
           </div>

@@ -5,6 +5,12 @@ export type TranscriptLine = {
   raw: string;
 };
 
+type MessageLike = {
+  role: string;
+  text: string;
+  ordinal: number;
+};
+
 const LINE_RE = /^\[(\d+)\]\s*(Agent|User|Tool):\s*([\s\S]*)$/;
 
 export function parseTranscript(transcript: string | null | undefined): TranscriptLine[] {
@@ -22,6 +28,25 @@ export function parseTranscript(transcript: string | null | undefined): Transcri
       };
     })
     .filter((line): line is TranscriptLine => line !== null);
+}
+
+export function messageRoleToTranscriptRole(role: string): TranscriptLine["role"] {
+  const normalized = role.toUpperCase();
+  if (normalized.includes("AGENT")) return "Agent";
+  if (normalized.includes("TOOL")) return "Tool";
+  return "User";
+}
+
+export function messageRowsToTranscriptLines(messages: MessageLike[]): TranscriptLine[] {
+  return messages.map((message) => {
+    const role = messageRoleToTranscriptRole(message.role);
+    return {
+      index: message.ordinal,
+      role,
+      text: message.text ?? "",
+      raw: `[${message.ordinal}] ${role}: ${message.text ?? ""}`
+    };
+  });
 }
 
 export function quoteIndex(quote: string | null | undefined): number | null {

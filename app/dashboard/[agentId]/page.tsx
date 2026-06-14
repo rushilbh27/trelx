@@ -1,23 +1,32 @@
 import Link from "next/link";
 import { ErrorEvidenceCard } from "@/app/components/ErrorEvidenceCard";
-import { GenerateFixButton } from "@/app/components/FixActions";
 import { errorLabel, hasAgentEvidence, severityText } from "@/lib/error-copy";
 import { createServerSupabase } from "@/lib/supabase";
-import { formatDuration, parseTranscript } from "@/lib/transcript";
-import type { Call, CallError, Patch } from "@/lib/types";
+import { formatDuration, messageRowsToTranscriptLines, parseTranscript } from "@/lib/transcript";
+import type { Call, CallError, CallMessage, Patch } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+type ErrorFrequencyRow = {
+  error_type: string;
+  count: number;
+  critical_count: number;
+  example_call_id: string;
+  example_line: string;
+  agents: string[];
+};
 
 export default async function AgentPage({ params }: { params: { agentId: string } }) {
   const agentId = decodeURIComponent(params.agentId);
   let callRows: unknown[] = [];
   let errorRows: unknown[] = [];
   let patchRows: unknown[] = [];
+  let frequencyRows: unknown[] = [];
   let setupError: string | null = null;
 
   try {
     const supabase = createServerSupabase();
-    const [callsResult, errorsResult, patchesResult] = await Promise.all([
+    const [callsResult, errorsResult, patchesResult, frequencyResult] = await Promise.all([
       supabase
         .from("calls")
         .select("*")
@@ -36,15 +45,18 @@ export default async function AgentPage({ params }: { params: { agentId: string 
         .select("*")
         .eq("agent_id", agentId)
         .order("created_at", { ascending: false })
-        .limit(20)
+        .limit(20),
+      supabase.rpc("get_trelx_error_frequency", { p_agent_id: agentId })
     ]);
 
     if (callsResult.error) throw callsResult.error;
     if (errorsResult.error) throw errorsResult.error;
     if (patchesResult.error) throw patchesResult.error;
+    if (frequencyResult.error) throw frequencyResult.error;
     callRows = callsResult.data ?? [];
     errorRows = errorsResult.data ?? [];
     patchRows = patchesResult.data ?? [];
+    frequencyRows = frequencyResult.data ?? [];
   } catch (error) {
     setupError = error instanceof Error ? error.message : String(error);
   }
@@ -53,17 +65,40 @@ export default async function AgentPage({ params }: { params: { agentId: string 
   const eligibleCallIds = new Set(calls.map((call) => call.id));
   const errors = (errorRows as CallError[]).filter((error) => eligibleCallIds.has(error.call_id) && hasAgentEvidence(error.quote));
   const patches = patchRows as Patch[];
+  const topPatterns = (frequencyRows as ErrorFrequencyRow[]).slice(0, 8);
   const agentName = calls[0]?.agent_name ?? agentId;
-  const errorCounts = new Map<string, number>();
-  for (const error of errors) errorCounts.set(error.error_type, (errorCounts.get(error.error_type) ?? 0) + 1);
   const errorsByCall = new Map<string, CallError[]>();
   for (const error of errors) {
     const list = errorsByCall.get(error.call_id) ?? [];
     list.push(error);
     errorsByCall.set(error.call_id, list);
   }
-  const callsWithErrors = calls.filter((call) => (errorsByCall.get(call.id)?.length ?? 0) > 0);
-  const topErrors = [...errorCounts.entries()].sort((a, b) => b[1] - a[1]);
+
+  const callsWithErrors = calls.filter((call) => (call.error_count ?? 0) > 0).slice(0, 8);
+  const analyzedCalls = calls.filter((call) => call.analysis_status === "complete").length;
+  const pendingCalls = calls.filter((call) => call.analysis_status === "pending" || call.analysis_status === "analyzing").length;
+  const criticalCount = calls.reduce((sum, call) => sum + (call.critical_error_count ?? 0), 0);
+  const errorRate = analyzedCalls > 0 ? Math.round((calls.filter((call) => (call.error_count ?? 0) > 0).length / analyzedCalls) * 100) : 0;
+
+  const evidenceCallIds = [...new Set(errors.slice(0, 30).map((error) => error.call_id))];
+  const messageMap = new Map<string, ReturnType<typeof messageRowsToTranscriptLines>>();
+  if (evidenceCallIds.length > 0) {
+    const supabase = createServerSupabase();
+    const { data: messageRows } = await supabase
+      .from("call_messages")
+      .select("call_id,role,text,ordinal")
+      .in("call_id", evidenceCallIds)
+      .order("ordinal", { ascending: true });
+    const grouped = new Map<string, CallMessage[]>();
+    for (const row of ((messageRows ?? []) as CallMessage[])) {
+      const list = grouped.get(row.call_id) ?? [];
+      list.push(row);
+      grouped.set(row.call_id, list);
+    }
+    for (const [callId, rows] of grouped.entries()) {
+      messageMap.set(callId, messageRowsToTranscriptLines(rows));
+    }
+  }
 
   return (
     <main className="mx-auto max-w-7xl px-5 py-8">
@@ -82,49 +117,59 @@ export default async function AgentPage({ params }: { params: { agentId: string 
           <h1 className="mt-2 text-4xl font-black text-white">{agentName}</h1>
           <p className="mt-2 break-all text-xs text-zinc-500">{agentId}</p>
 
-          <div className="mt-8 grid gap-3 md:grid-cols-3">
+          <div className="mt-8 grid gap-3 md:grid-cols-4">
             <div className="border border-white/10 bg-black p-4">
               <div className="text-xs text-zinc-500">Calls</div>
               <div className="mt-1 text-3xl font-black">{calls.length}</div>
             </div>
             <div className="border border-white/10 bg-black p-4">
-              <div className="text-xs text-zinc-500">Errors</div>
-              <div className="mt-1 text-3xl font-black">{errors.length}</div>
+              <div className="text-xs text-zinc-500">Analyzed</div>
+              <div className="mt-1 text-3xl font-black">{analyzedCalls}</div>
             </div>
             <div className="border border-white/10 bg-black p-4">
-              <div className="text-xs text-zinc-500">Top error</div>
-              <div className="mt-2 text-sm text-white">{topErrors[0] ? errorLabel(topErrors[0][0]) : "-"}</div>
+              <div className="text-xs text-zinc-500">Error rate</div>
+              <div className={`mt-1 text-3xl font-black ${errorRate > 0 ? "text-orange-300" : "text-emerald-300"}`}>{errorRate}%</div>
+            </div>
+            <div className="border border-white/10 bg-black p-4">
+              <div className="text-xs text-zinc-500">Critical</div>
+              <div className="mt-1 text-3xl font-black text-red-300">{criticalCount}</div>
             </div>
           </div>
 
           <section className="mt-8 grid gap-4 lg:grid-cols-2">
             <div className="border border-white/10 bg-black p-5">
-              <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Failure pattern leaderboard</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Failure pattern leaderboard</h2>
+                <span className="text-xs text-zinc-500">{pendingCalls} pending</span>
+              </div>
               <div className="mt-4 grid gap-2">
-                {topErrors.map(([type, count]) => (
-                  <div key={type} className="flex items-center justify-between border border-white/10 px-3 py-2 text-xs">
-                    <span>{errorLabel(type)}</span>
-                    <span className="text-emerald-300">{count}</span>
+                {topPatterns.map((pattern) => (
+                  <div key={pattern.error_type} className="border border-white/10 px-3 py-3 text-xs">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-bold text-white">{errorLabel(pattern.error_type)}</span>
+                      <span className={pattern.critical_count > 0 ? severityText("critical") : "text-emerald-300"}>{pattern.count}</span>
+                    </div>
+                    {pattern.example_line ? <div className="mt-2 text-zinc-400">{pattern.example_line}</div> : null}
                   </div>
                 ))}
-                {topErrors.length === 0 ? <div className="text-sm text-zinc-500">No detected failures.</div> : null}
+                {topPatterns.length === 0 ? <div className="text-sm text-zinc-500">No detected failures.</div> : null}
               </div>
             </div>
 
             <div className="border border-white/10 bg-black p-5">
               <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Worst recent calls</h2>
               <div className="mt-4 divide-y divide-white/10">
-                {callsWithErrors.slice(0, 8).map((call) => {
+                {callsWithErrors.map((call) => {
                   const callErrors = errorsByCall.get(call.id) ?? [];
-                  const hasCritical = callErrors.some((error) => error.severity === "critical");
+                  const hasCritical = (call.critical_error_count ?? 0) > 0;
                   return (
-                    <Link key={call.id} href={`/calls/${encodeURIComponent(call.id)}`} className="grid grid-cols-[1fr_70px_70px] gap-3 py-3 text-xs hover:bg-white/[0.03]">
+                    <Link key={call.id} href={`/calls/${encodeURIComponent(call.id)}`} className="grid grid-cols-[1fr_70px_78px] gap-3 py-3 text-xs hover:bg-white/[0.03]">
                       <div className="min-w-0">
                         <div className="truncate font-bold text-white">{call.summary || call.id}</div>
                         <div className="mt-1 truncate text-zinc-500">{new Date(call.created_at).toLocaleString()}</div>
                       </div>
                       <div className="text-zinc-400">{formatDuration(call.duration_seconds)}</div>
-                      <div className={hasCritical ? severityText("critical") : severityText("high")}>{callErrors.length} err</div>
+                      <div className={hasCritical ? severityText("critical") : severityText("high")}>{callErrors.length || call.error_count || 0} err</div>
                     </Link>
                   );
                 })}
@@ -139,13 +184,14 @@ export default async function AgentPage({ params }: { params: { agentId: string 
               <div className="border border-white/10 bg-black p-6 text-sm text-zinc-400">No analyzed errors yet.</div>
             ) : (
               <div className="grid gap-4">
-                {errors.map((error) => {
+                {errors.slice(0, 30).map((error) => {
                   const call = calls.find((item) => item.id === error.call_id);
+                  const transcriptLines = messageMap.get(error.call_id) ?? parseTranscript(call?.transcript);
                   return (
                     <ErrorEvidenceCard
                       key={error.id}
                       error={error}
-                      transcriptLines={parseTranscript(call?.transcript)}
+                      transcriptLines={transcriptLines}
                       showFix
                     />
                   );
@@ -159,14 +205,13 @@ export default async function AgentPage({ params }: { params: { agentId: string 
           <section className="border border-white/10 bg-black p-5">
             <h2 className="text-lg font-black text-white">Error leaderboard</h2>
             <div className="mt-4 grid gap-2">
-              {[...errorCounts.entries()]
-                .sort((a, b) => b[1] - a[1])
-                .map(([type, count]) => (
-                  <div key={type} className="flex items-center justify-between border border-white/10 p-3 text-xs">
-                    <span>{errorLabel(type)}</span>
-                    <span className="text-emerald-300">{count}</span>
-                  </div>
-                ))}
+              {topPatterns.map((pattern) => (
+                <div key={pattern.error_type} className="flex items-center justify-between border border-white/10 p-3 text-xs">
+                  <span>{errorLabel(pattern.error_type)}</span>
+                  <span className={pattern.critical_count > 0 ? severityText("critical") : "text-emerald-300"}>{pattern.count}</span>
+                </div>
+              ))}
+              {topPatterns.length === 0 ? <div className="text-sm text-zinc-500">No failures yet.</div> : null}
             </div>
           </section>
           <section className="border border-white/10 bg-black p-5">

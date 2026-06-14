@@ -169,12 +169,13 @@ export function formatTranscript(messages: UltravoxMessage[]): string {
   return [...messages]
     .sort((a, b) => (a.callStageMessageIndex ?? 0) - (b.callStageMessageIndex ?? 0))
     .map((message, index) => {
+      const ordinal = message.callStageMessageIndex ?? index;
       const role = message.role.includes("AGENT")
         ? "Agent"
         : message.role.includes("TOOL")
           ? "Tool"
           : "User";
-      return `[${index}] ${role}: ${message.text ?? ""}`;
+      return `[${ordinal}] ${role}: ${message.text ?? ""}`;
     })
     .join("\n");
 }

@@ -23,6 +23,23 @@ export type Call = {
   prompt_hash?: string | null;
 };
 
+export type CallMessage = {
+  call_id: string;
+  role: string;
+  text: string;
+  ordinal: number;
+};
+
+export type CallTool = {
+  call_id: string;
+  tool_name: string;
+  parameters: unknown;
+  result: unknown;
+  invocation_time: string | null;
+  status: string | null;
+  error_message: string | null;
+};
+
 export type CallError = {
   id: string;
   call_id: string;

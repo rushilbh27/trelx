@@ -67,9 +67,21 @@ function enhancedCallToRow(call: EnrichedUltravoxCall | (UltravoxCall & { transc
   const base = callToRow(call);
   return {
     ...base,
+    analyzed: false,
     analysis_status: (base.duration_seconds ?? 0) < MIN_ANALYSIS_SECONDS ? "skipped" : "pending",
     error_count: 0,
     critical_error_count: 0,
+    call_errors: null,
+    end_reason: call.endReason ?? null,
+    ended_at: call.ended ?? null,
+    raw_data: call
+  };
+}
+
+function syncOnlyCallToRow(call: EnrichedUltravoxCall | (UltravoxCall & { transcript: string; tools: unknown[] })) {
+  const base = callToRow(call);
+  return {
+    ...base,
     end_reason: call.endReason ?? null,
     ended_at: call.ended ?? null,
     raw_data: call
@@ -100,13 +112,37 @@ function analysisJson(errors: DetectedError[]) {
 
 async function upsertCalls(calls: EnrichedUltravoxCall[]) {
   const supabase = createServerSupabase();
-  const enhancedRows = calls.map(enhancedCallToRow);
-  const enhanced = await supabase.from("calls").upsert(enhancedRows, { onConflict: "id" });
-  if (!enhanced.error) return;
+  const callIds = calls.map((call) => call.callId);
+  const { data: existingRows, error: existingError } = await supabase
+    .from("calls")
+    .select("id")
+    .in("id", callIds);
+  if (existingError) throw existingError;
 
-  const baseRows = calls.map(callToRow);
-  const { error } = await supabase.from("calls").upsert(baseRows, { onConflict: "id" });
-  if (error) throw error;
+  const existingIds = new Set((existingRows ?? []).map((row) => String(row.id)));
+  const newCalls = calls.filter((call) => !existingIds.has(call.callId));
+  const existingCalls = calls.filter((call) => existingIds.has(call.callId));
+
+  if (existingCalls.length > 0) {
+    const syncRows = existingCalls.map(syncOnlyCallToRow);
+    const enhancedExisting = await supabase.from("calls").upsert(syncRows, { onConflict: "id" });
+    if (enhancedExisting.error) {
+      const { error } = await supabase.from("calls").upsert(existingCalls.map(callToRow), { onConflict: "id" });
+      if (error) throw error;
+    }
+  }
+
+  if (newCalls.length > 0) {
+    const enhancedNew = await supabase.from("calls").insert(newCalls.map(enhancedCallToRow));
+    if (enhancedNew.error) {
+      const baseRows = newCalls.map((call) => ({
+        ...callToRow(call),
+        analyzed: false
+      }));
+      const { error } = await supabase.from("calls").insert(baseRows);
+      if (error) throw error;
+    }
+  }
 }
 
 async function saveMessagesAndTools(calls: EnrichedUltravoxCall[]) {
@@ -276,12 +312,21 @@ export async function ingestAndAnalyzeCall(callId: string): Promise<PipelineSumm
   const row = callToRow({ ...call, transcript, tools });
 
   const supabase = createServerSupabase();
-  const enhancedRow = enhancedCallToRow({ ...call, transcript, tools });
-  const enhancedUpsert = await supabase.from("calls").upsert(enhancedRow, { onConflict: "id" });
-  const { error: upsertError } = enhancedUpsert.error
-    ? await supabase.from("calls").upsert(row, { onConflict: "id" })
-    : { error: null };
-  if (upsertError) throw upsertError;
+  const { data: existing, error: existingLookupError } = await supabase.from("calls").select("id").eq("id", callId).maybeSingle();
+  if (existingLookupError) throw existingLookupError;
+  if (existing?.id) {
+    const enhancedSync = await supabase.from("calls").upsert(syncOnlyCallToRow({ ...call, transcript, tools }), { onConflict: "id" });
+    const { error: updateError } = enhancedSync.error
+      ? await supabase.from("calls").upsert(row, { onConflict: "id" })
+      : { error: null };
+    if (updateError) throw updateError;
+  } else {
+    const enhancedInsert = await supabase.from("calls").insert(enhancedCallToRow({ ...call, transcript, tools }));
+    const { error: insertError } = enhancedInsert.error
+      ? await supabase.from("calls").insert({ ...row, analyzed: false })
+      : { error: null };
+    if (insertError) throw insertError;
+  }
   await saveMessagesAndTools([{ ...call, messages, transcript, tools }]).catch(() => {});
 
   if ((row.duration_seconds ?? 0) < MIN_ANALYSIS_SECONDS) {
