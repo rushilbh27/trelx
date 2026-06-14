@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { DashboardActions } from "@/app/components/DashboardActions";
 import { createServerSupabase } from "@/lib/supabase";
+import { errorLabel, hasAgentEvidence, severityText } from "@/lib/error-copy";
+import { formatDuration } from "@/lib/transcript";
 import type { Call, CallError } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +53,7 @@ export default async function DashboardPage() {
 
   const calls = callRows as Call[];
   const eligibleCallIds = new Set(calls.map((call) => call.id));
-  const errors = (errorRows as CallError[]).filter((error) => eligibleCallIds.has(error.call_id));
+  const errors = (errorRows as CallError[]).filter((error) => eligibleCallIds.has(error.call_id) && hasAgentEvidence(error.quote));
   const stats = new Map<string, AgentStats>();
 
   for (const call of calls) {
@@ -90,6 +92,14 @@ export default async function DashboardPage() {
   const totalCalls = calls.length;
   const totalErrors = errors.length;
   const criticalErrors = errors.filter((error) => error.severity === "critical").length;
+  const analyzedCalls = calls.filter((call) => call.analyzed).length;
+  const pendingCalls = calls.filter((call) => !call.analyzed).length;
+  const callsWithErrors = new Set(errors.map((error) => error.call_id)).size;
+  const topErrors = [...errors.reduce<Map<string, number>>((map, error) => {
+    map.set(error.error_type, (map.get(error.error_type) ?? 0) + 1);
+    return map;
+  }, new Map()).entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const recentCalls = calls.slice(0, 8);
 
   return (
     <main className="mx-auto max-w-7xl px-5 py-8">
@@ -101,9 +111,11 @@ export default async function DashboardPage() {
         <DashboardActions />
       </div>
 
-      <section className="mb-6 grid gap-3 md:grid-cols-3">
+      <section className="mb-6 grid gap-3 md:grid-cols-5">
         {[
           ["Calls", totalCalls],
+          ["Analyzed", analyzedCalls],
+          ["Pending", pendingCalls],
           ["Errors", totalErrors],
           ["Critical", criticalErrors]
         ].map(([label, value]) => (
@@ -112,6 +124,49 @@ export default async function DashboardPage() {
             <div className="mt-2 text-4xl font-black text-white">{value}</div>
           </div>
         ))}
+      </section>
+
+      <section className="mb-6 grid gap-4 lg:grid-cols-[0.42fr_0.58fr]">
+        <div className="border border-white/10 bg-black p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Top failure patterns</h2>
+            <Link href="/errors" className="text-xs text-emerald-300 hover:text-white">view all</Link>
+          </div>
+          <div className="mt-4 grid gap-2">
+            {topErrors.map(([type, count]) => (
+              <div key={type} className="flex items-center justify-between border border-white/10 px-3 py-2 text-xs">
+                <span>{errorLabel(type)}</span>
+                <span className="text-emerald-300">{count}</span>
+              </div>
+            ))}
+            {topErrors.length === 0 ? <div className="text-sm text-zinc-500">No failures detected yet.</div> : null}
+          </div>
+        </div>
+
+        <div className="border border-white/10 bg-black p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Latest calls</h2>
+            <Link href="/calls" className="text-xs text-emerald-300 hover:text-white">open call log</Link>
+          </div>
+          <div className="mt-4 divide-y divide-white/10">
+            {recentCalls.map((call) => {
+              const callErrors = errors.filter((error) => error.call_id === call.id);
+              const critical = callErrors.some((error) => error.severity === "critical");
+              return (
+                <Link key={call.id} href={`/calls/${encodeURIComponent(call.id)}`} className="grid grid-cols-[1fr_80px_90px] gap-3 py-3 text-xs hover:bg-white/[0.03]">
+                  <div className="min-w-0">
+                    <div className="truncate font-bold text-white">{call.summary || call.agent_name || call.id}</div>
+                    <div className="mt-1 truncate text-zinc-500">{call.agent_name ?? call.agent_id}</div>
+                  </div>
+                  <div className="text-zinc-400">{formatDuration(call.duration_seconds)}</div>
+                  <div className={critical ? severityText("critical") : callErrors.length > 0 ? severityText("high") : "text-emerald-300"}>
+                    {call.analyzed ? `${callErrors.length} err` : "pending"}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </section>
 
       {setupError ? (
@@ -128,7 +183,12 @@ export default async function DashboardPage() {
           No real calls in Supabase yet. Run sync after env vars and schema are ready.
         </div>
       ) : (
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <section>
+          <div className="mb-3 flex items-end justify-between">
+            <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Agent grid</h2>
+            <div className="text-xs text-zinc-500">{callsWithErrors} calls with errors</div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {agents.map((agent) => (
             <Link
               href={`/dashboard/${encodeURIComponent(agent.agent_id)}`}
@@ -160,6 +220,7 @@ export default async function DashboardPage() {
               </div>
             </Link>
           ))}
+          </div>
         </section>
       )}
     </main>

@@ -1,16 +1,12 @@
 import Link from "next/link";
+import { ErrorEvidenceCard } from "@/app/components/ErrorEvidenceCard";
 import { GenerateFixButton } from "@/app/components/FixActions";
+import { errorLabel, hasAgentEvidence, severityText } from "@/lib/error-copy";
 import { createServerSupabase } from "@/lib/supabase";
+import { formatDuration, parseTranscript } from "@/lib/transcript";
 import type { Call, CallError, Patch } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-function severityClass(severity: string) {
-  if (severity === "critical") return "border-red-500/40 text-red-300";
-  if (severity === "high") return "border-orange-400/40 text-orange-300";
-  if (severity === "medium") return "border-yellow-400/40 text-yellow-300";
-  return "border-zinc-600 text-zinc-300";
-}
 
 export default async function AgentPage({ params }: { params: { agentId: string } }) {
   const agentId = decodeURIComponent(params.agentId);
@@ -55,11 +51,19 @@ export default async function AgentPage({ params }: { params: { agentId: string 
 
   const calls = callRows as Call[];
   const eligibleCallIds = new Set(calls.map((call) => call.id));
-  const errors = (errorRows as CallError[]).filter((error) => eligibleCallIds.has(error.call_id));
+  const errors = (errorRows as CallError[]).filter((error) => eligibleCallIds.has(error.call_id) && hasAgentEvidence(error.quote));
   const patches = patchRows as Patch[];
   const agentName = calls[0]?.agent_name ?? agentId;
   const errorCounts = new Map<string, number>();
   for (const error of errors) errorCounts.set(error.error_type, (errorCounts.get(error.error_type) ?? 0) + 1);
+  const errorsByCall = new Map<string, CallError[]>();
+  for (const error of errors) {
+    const list = errorsByCall.get(error.call_id) ?? [];
+    list.push(error);
+    errorsByCall.set(error.call_id, list);
+  }
+  const callsWithErrors = calls.filter((call) => (errorsByCall.get(call.id)?.length ?? 0) > 0);
+  const topErrors = [...errorCounts.entries()].sort((a, b) => b[1] - a[1]);
 
   return (
     <main className="mx-auto max-w-7xl px-5 py-8">
@@ -89,9 +93,45 @@ export default async function AgentPage({ params }: { params: { agentId: string 
             </div>
             <div className="border border-white/10 bg-black p-4">
               <div className="text-xs text-zinc-500">Top error</div>
-              <div className="mt-2 text-sm text-white">{[...errorCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "-"}</div>
+              <div className="mt-2 text-sm text-white">{topErrors[0] ? errorLabel(topErrors[0][0]) : "-"}</div>
             </div>
           </div>
+
+          <section className="mt-8 grid gap-4 lg:grid-cols-2">
+            <div className="border border-white/10 bg-black p-5">
+              <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Failure pattern leaderboard</h2>
+              <div className="mt-4 grid gap-2">
+                {topErrors.map(([type, count]) => (
+                  <div key={type} className="flex items-center justify-between border border-white/10 px-3 py-2 text-xs">
+                    <span>{errorLabel(type)}</span>
+                    <span className="text-emerald-300">{count}</span>
+                  </div>
+                ))}
+                {topErrors.length === 0 ? <div className="text-sm text-zinc-500">No detected failures.</div> : null}
+              </div>
+            </div>
+
+            <div className="border border-white/10 bg-black p-5">
+              <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Worst recent calls</h2>
+              <div className="mt-4 divide-y divide-white/10">
+                {callsWithErrors.slice(0, 8).map((call) => {
+                  const callErrors = errorsByCall.get(call.id) ?? [];
+                  const hasCritical = callErrors.some((error) => error.severity === "critical");
+                  return (
+                    <Link key={call.id} href={`/calls/${encodeURIComponent(call.id)}`} className="grid grid-cols-[1fr_70px_70px] gap-3 py-3 text-xs hover:bg-white/[0.03]">
+                      <div className="min-w-0">
+                        <div className="truncate font-bold text-white">{call.summary || call.id}</div>
+                        <div className="mt-1 truncate text-zinc-500">{new Date(call.created_at).toLocaleString()}</div>
+                      </div>
+                      <div className="text-zinc-400">{formatDuration(call.duration_seconds)}</div>
+                      <div className={hasCritical ? severityText("critical") : severityText("high")}>{callErrors.length} err</div>
+                    </Link>
+                  );
+                })}
+                {callsWithErrors.length === 0 ? <div className="text-sm text-zinc-500">No failed calls for this agent.</div> : null}
+              </div>
+            </div>
+          </section>
 
           <section className="mt-8">
             <h2 className="mb-3 text-xl font-black text-white">Transcript-backed errors</h2>
@@ -99,19 +139,17 @@ export default async function AgentPage({ params }: { params: { agentId: string 
               <div className="border border-white/10 bg-black p-6 text-sm text-zinc-400">No analyzed errors yet.</div>
             ) : (
               <div className="grid gap-4">
-                {errors.map((error) => (
-                  <article key={error.id} className="border border-white/10 bg-black p-5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`border px-2 py-1 text-xs uppercase ${severityClass(error.severity)}`}>{error.severity}</span>
-                      <span className="text-sm font-black text-white">{error.error_type}</span>
-                      {error.call_stage ? <span className="text-xs text-zinc-500">{error.call_stage}</span> : null}
-                    </div>
-                    <blockquote className="mt-4 border-l-2 border-emerald-300 pl-4 text-sm leading-6 text-zinc-200">
-                      {error.quote ?? "No quote captured."}
-                    </blockquote>
-                    <GenerateFixButton errorId={error.id} />
-                  </article>
-                ))}
+                {errors.map((error) => {
+                  const call = calls.find((item) => item.id === error.call_id);
+                  return (
+                    <ErrorEvidenceCard
+                      key={error.id}
+                      error={error}
+                      transcriptLines={parseTranscript(call?.transcript)}
+                      showFix
+                    />
+                  );
+                })}
               </div>
             )}
           </section>
@@ -125,7 +163,7 @@ export default async function AgentPage({ params }: { params: { agentId: string 
                 .sort((a, b) => b[1] - a[1])
                 .map(([type, count]) => (
                   <div key={type} className="flex items-center justify-between border border-white/10 p-3 text-xs">
-                    <span>{type}</span>
+                    <span>{errorLabel(type)}</span>
                     <span className="text-emerald-300">{count}</span>
                   </div>
                 ))}

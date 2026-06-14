@@ -14,23 +14,42 @@ export function DashboardActions() {
     didRun.current = true;
 
     async function runPipeline() {
-      setStatus("syncing + analyzing latest 500");
-      const response = await fetch("/api/pipeline?limit=500", { method: "POST" });
-      const data = (await response.json()) as {
-        ok?: boolean;
-        synced?: number;
-        analyzed?: number;
-        errors?: number;
-        skippedShort?: number;
-        error?: string;
-      };
-      if (!data.ok) {
-        setStatus(data.error ?? "pipeline failed");
+      setStatus("syncing latest calls");
+      const syncResponse = await fetch("/api/sync?limit=100", { method: "GET" });
+      const syncData = (await syncResponse.json()) as { ok?: boolean; synced?: number; error?: string };
+      if (!syncData.ok) {
+        setStatus(syncData.error ?? "sync failed");
         return;
       }
-      setStatus(
-        `live: synced ${data.synced ?? 0}, analyzed ${data.analyzed ?? 0}, errors ${data.errors ?? 0}, skipped short ${data.skippedShort ?? 0}`
-      );
+
+      let analyzed = 0;
+      let errors = 0;
+      let skippedShort = 0;
+      for (let batch = 0; batch < 8; batch += 1) {
+        setStatus(`analyzing batch ${batch + 1}/8`);
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ limit: 10 })
+        });
+        const data = (await response.json()) as {
+          ok?: boolean;
+          analyzed?: number;
+          errors?: number;
+          skippedShort?: number;
+          error?: string;
+        };
+        if (!data.ok) {
+          setStatus(data.error ?? "analysis failed");
+          return;
+        }
+        analyzed += data.analyzed ?? 0;
+        errors += data.errors ?? 0;
+        skippedShort += data.skippedShort ?? 0;
+        if ((data.analyzed ?? 0) === 0 && (data.skippedShort ?? 0) === 0) break;
+      }
+
+      setStatus(`live: synced ${syncData.synced ?? 0}, analyzed ${analyzed}, errors ${errors}, skipped short ${skippedShort}`);
       startTransition(() => router.refresh());
     }
 
