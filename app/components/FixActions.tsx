@@ -38,6 +38,20 @@ export function GenerateFixButton({ errorId }: { errorId: string }) {
     }
   }
 
+  const [copiedFind, setCopiedFind] = useState(false);
+  const [copiedReplace, setCopiedReplace] = useState(false);
+
+  async function handleCopy(text: string, type: "find" | "replace") {
+    await navigator.clipboard.writeText(text);
+    if (type === "find") {
+      setCopiedFind(true);
+      setTimeout(() => setCopiedFind(false), 2000);
+    } else {
+      setCopiedReplace(true);
+      setTimeout(() => setCopiedReplace(false), 2000);
+    }
+  }
+
   return (
     <div className="border-t-2 border-chalk-3 pt-4 mt-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -60,6 +74,17 @@ export function GenerateFixButton({ errorId }: { errorId: string }) {
           )}
         </button>
 
+        {status === "done" && (
+          <button
+            type="button"
+            className="btn-brutal flex items-center gap-2 bg-[var(--warn)] border-[var(--warn-border)] text-ink"
+            style={{ padding: "8px 16px", cursor: "pointer" }}
+            onClick={() => alert("Apply Patch functionality is not connected in this demo.")}
+          >
+            <span>⚠️ Apply Patch to Agent</span>
+          </button>
+        )}
+
         {status === "error" && (
           <span className="font-mono text-[10px] text-[var(--crit)]">{errorMsg}</span>
         )}
@@ -73,8 +98,16 @@ export function GenerateFixButton({ errorId }: { errorId: string }) {
               <p className="font-sans text-sm text-ink-2 leading-relaxed m-0">{patch.reason}</p>
             </div>
           )}
-          <div>
-            <div className="font-mono text-[9px] uppercase tracking-widest text-ink-3 mb-2">Remove (find)</div>
+          <div className="relative">
+            <div className="flex justify-between items-center mb-2">
+              <div className="font-mono text-[9px] uppercase tracking-widest text-ink-3">Remove (find)</div>
+              <button 
+                onClick={() => handleCopy(patch.find_text, "find")}
+                className={`font-mono text-[9px] px-2 py-1 border-2 transition-colors ${copiedFind ? "bg-[var(--ok)] text-white border-[var(--ok-border)]" : "bg-white border-ink text-ink hover:bg-chalk-2"}`}
+              >
+                {copiedFind ? "✓ COPIED" : "COPY"}
+              </button>
+            </div>
             <pre
               className="bg-[var(--crit-bg)] border-2 border-[var(--crit-border)] p-3 text-xs text-ink-2 overflow-auto max-h-28 whitespace-pre-wrap leading-relaxed"
               style={{ fontFamily: "var(--font-mono)" }}
@@ -82,8 +115,16 @@ export function GenerateFixButton({ errorId }: { errorId: string }) {
               {patch.find_text}
             </pre>
           </div>
-          <div>
-            <div className="font-mono text-[9px] uppercase tracking-widest text-ink-3 mb-2">Replace with</div>
+          <div className="relative">
+            <div className="flex justify-between items-center mb-2">
+              <div className="font-mono text-[9px] uppercase tracking-widest text-ink-3">Replace with</div>
+              <button 
+                onClick={() => handleCopy(patch.replace_text, "replace")}
+                className={`font-mono text-[9px] px-2 py-1 border-2 transition-colors ${copiedReplace ? "bg-[var(--ok)] text-white border-[var(--ok-border)]" : "bg-white border-ink text-ink hover:bg-chalk-2"}`}
+              >
+                {copiedReplace ? "✓ COPIED" : "COPY"}
+              </button>
+            </div>
             <pre
               className="bg-[var(--ok-bg)] border-2 border-[var(--ok-border)] p-3 text-xs text-ink overflow-auto max-h-56 whitespace-pre-wrap leading-relaxed"
               style={{ fontFamily: "var(--font-mono)" }}

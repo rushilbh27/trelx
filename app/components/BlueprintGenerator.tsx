@@ -17,7 +17,10 @@ const AGENT_TYPES = [
   { value: "sales",           label: "Sales AI" },
   { value: "debt_collection", label: "Debt Collection" },
   { value: "receptionist",    label: "Inbound Receptionist" },
-  { value: "cold_outreach",   label: "Cold Outreach" }
+  { value: "cold_outreach",   label: "Cold Outreach" },
+  { value: "customer_support",label: "Customer Support" },
+  { value: "tech_support",    label: "Technical Support" },
+  { value: "ecommerce",       label: "E-commerce Concierge" }
 ] as const;
 
 export function BlueprintGenerator() {
@@ -26,12 +29,14 @@ export function BlueprintGenerator() {
   const [prompt, setPrompt] = useState("");
   const [meta, setMeta] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [copied, setCopied] = useState(false);
 
   async function generate() {
     setStatus("loading");
     setPrompt("");
     setMeta("");
     setErrorMsg("");
+    setCopied(false);
     try {
       const response = await fetch("/api/blueprint", {
         method: "POST",
@@ -51,6 +56,12 @@ export function BlueprintGenerator() {
       setErrorMsg("Network error — check console");
       setStatus("error");
     }
+  }
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(prompt);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -118,11 +129,11 @@ export function BlueprintGenerator() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => void navigator.clipboard.writeText(prompt)}
-                  className="btn-brutal"
+                  onClick={handleCopy}
+                  className={`btn-brutal transition-colors ${copied ? "bg-[var(--ok)] text-white border-[var(--ok-border)]" : ""}`}
                   style={{ padding: "4px 12px", fontSize: "10px" }}
                 >
-                  Copy
+                  {copied ? "✓ COPIED" : "Copy"}
                 </button>
               </div>
               <textarea

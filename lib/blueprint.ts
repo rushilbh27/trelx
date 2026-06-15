@@ -18,6 +18,8 @@ ${input.topPatterns}
 
 Write a complete, production-ready system prompt for this agent type that structurally prevents these failure patterns. Include sections: Role, Core Rules, Conversation Flow, Error Prevention (mapped to the patterns above), Tool Usage, Closing.
 
+CRITICAL FORMATTING RULE: Do NOT use any asterisks (*) for formatting. Do not use bold (**) or italics (*). Use ALL CAPS or dashes (-) for emphasis and lists instead. Asterisks break our prompt UI.
+
 Return the system prompt as plain text.`
   });
 }
