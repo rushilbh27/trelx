@@ -47,7 +47,6 @@ export default async function DashboardPage() {
         .select("*")
         .gte("duration_seconds", MIN_ANALYSIS_SECONDS)
         .lte("duration_seconds", MAX_ANALYSIS_SECONDS)
-        .order("created_at", { ascending: false })
         .limit(1000),
       supabase
         .from("call_errors")

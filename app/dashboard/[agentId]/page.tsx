@@ -27,10 +27,10 @@ export default async function AgentPage({ params }: { params: { agentId: string 
         .from("calls").select("*").eq("agent_id", agentId)
         .gte("duration_seconds", MIN_ANALYSIS_SECONDS)
         .lte("duration_seconds", MAX_ANALYSIS_SECONDS)
-        .order("created_at", { ascending: false }).limit(5000),
+        .limit(500),
       supabase
         .from("call_errors").select("*").eq("agent_id", agentId)
-        .order("detected_at", { ascending: false }).limit(10000),
+        .limit(1000),
       supabase
         .from("patches").select("*").eq("agent_id", agentId)
         .order("created_at", { ascending: false }).limit(20)
