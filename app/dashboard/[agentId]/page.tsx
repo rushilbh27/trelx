@@ -25,12 +25,10 @@ export default async function AgentPage({ params }: { params: { agentId: string 
     const [callsResult, errorsResult, patchesResult] = await Promise.all([
       supabase
         .from("calls").select("*").eq("agent_id", agentId)
-        .gte("duration_seconds", MIN_ANALYSIS_SECONDS)
-        .lte("duration_seconds", MAX_ANALYSIS_SECONDS)
-        .limit(500),
+        .limit(200),
       supabase
         .from("call_errors").select("*").eq("agent_id", agentId)
-        .limit(1000),
+        .limit(500),
       supabase
         .from("patches").select("*").eq("agent_id", agentId)
         .order("created_at", { ascending: false }).limit(20)

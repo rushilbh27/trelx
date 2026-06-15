@@ -44,14 +44,12 @@ export default async function DashboardPage() {
     const [callsResult, errorsResult] = await Promise.all([
       supabase
         .from("calls")
-        .select("*")
-        .gte("duration_seconds", MIN_ANALYSIS_SECONDS)
-        .lte("duration_seconds", MAX_ANALYSIS_SECONDS)
-        .limit(1000),
+        .select("id, agent_id, agent_name, agent_type, duration_seconds, analyzed, analysis_status, error_count, critical_error_count, created_at")
+        .limit(500),
       supabase
         .from("call_errors")
         .select("id, call_id, agent_id, error_type, severity, quote, call_stage")
-        .limit(1000)
+        .limit(500)
     ]);
     if (callsResult.error) throw callsResult.error;
     if (errorsResult.error) throw errorsResult.error;
