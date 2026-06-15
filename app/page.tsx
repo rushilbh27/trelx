@@ -30,7 +30,7 @@ export default function Home() {
     <main className="overflow-hidden bg-chalk">
 
       {/* ── Hero ────────────────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-[1440px] px-5 pt-16 pb-20 md:px-8 md:pt-24 md:pb-28">
+      <section className="mx-auto max-w-[1440px] px-5 pt-16 pb-20 md:px-8 md:pt-24 md:pb-28 grid lg:grid-cols-2 gap-12 items-center">
         <div className="max-w-3xl animate-fade-up">
           {/* Eyebrow pill */}
           <div className="inline-flex items-center gap-2 border-2 border-ink bg-white px-4 py-2 mb-8 shadow-brutal-sm">
@@ -61,8 +61,34 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Hero Graphic */}
+        <div className="hidden lg:block animate-fade-in relative z-10" style={{ animationDelay: "300ms" }}>
+          <div className="border-2 border-ink bg-white p-6 shadow-brutal-lg transform rotate-2 hover:rotate-0 transition-transform duration-300">
+            <div className="flex items-center gap-2 mb-4 border-b-2 border-chalk-3 pb-4">
+              <div className="w-3 h-3 bg-[var(--crit)] rounded-full" />
+              <div className="w-3 h-3 bg-[var(--warn)] rounded-full" />
+              <div className="w-3 h-3 bg-[var(--ok)] rounded-full" />
+              <div className="ml-auto font-mono text-[10px] uppercase tracking-widest text-ink-3">Trelx_Engine_v1.0</div>
+            </div>
+            <pre className="font-mono text-sm text-ink-2 leading-relaxed overflow-hidden whitespace-pre-wrap">
+{`> INITIALIZING AGENT MONITOR...
+> SYNCING 500 CALLS FROM ULTRAVOX
+> ANALYZING TRANSCRIPTS...
+
+[ERR] "Robotic repetition" detected.
+      Severity: CRITICAL
+      Quote: "Hello... Good morning... Am I speaking..."
+
+> GENERATING PATCH...
+> SIMULATING FIX AGAINST HISTORY...
+> SUCCESS: Error rate dropped 14.2% -> 2.1%.
+
+> STATUS: AGENT HARDENED.`}
+            </pre>
+          </div>
+        </div>
         {/* ── Stats strip ─────────────────────────────────────────────────── */}
-        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-up" style={{ animationDelay: "200ms" }}>
+        <div className="lg:col-span-2 mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-up" style={{ animationDelay: "200ms" }}>
           {[
             { label: "Calls analyzed",   value: "500+",  sub: "in production" },
             { label: "Errors detected",  value: "60+",   sub: "transcript-backed" },
