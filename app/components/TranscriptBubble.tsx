@@ -43,6 +43,7 @@ export function TranscriptBubble({
 
   return (
     <div
+      id={`bubble-${line.index}`}
       className={`flex gap-2.5 ${isRight ? "flex-row-reverse" : ""}`}
       style={{ animation: "fade-up 0.25s ease-out both" }}
     >

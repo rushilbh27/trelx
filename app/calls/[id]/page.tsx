@@ -4,10 +4,12 @@ import { ErrorEvidenceCard } from "@/app/components/ErrorEvidenceCard";
 import { TranscriptBubble } from "@/app/components/TranscriptBubble";
 import { createServerSupabase } from "@/lib/supabase";
 import { hasAgentEvidence, severityText, errorLabel } from "@/lib/error-copy";
-import { formatDuration, messageRowsToTranscriptLines, parseTranscript } from "@/lib/transcript";
+import { formatDuration, messageRowsToTranscriptLines, parseTranscript, quoteMatchesLine } from "@/lib/transcript";
 import { getCallRecordingUrl } from "@/lib/ultravox";
 import type { Call, CallError, CallMessage, CallTool } from "@/lib/types";
 import type { TranscriptLine } from "@/lib/transcript";
+
+import { FlaggedNav } from "@/app/components/FlaggedNav";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +93,7 @@ export default async function CallDetailPage({ params }: { params: { id: string 
 
   const agentLines = lines.filter((l) => l.role === "Agent").length;
   const userLines = lines.filter((l) => l.role === "User").length;
+  const flaggedIds = lines.filter((line) => quotes.some((q) => quoteMatchesLine(q, line))).map((line) => `bubble-${line.index}`);
 
   return (
     <main className="mx-auto max-w-[1440px] px-5 py-8 md:px-8">
@@ -191,9 +194,7 @@ export default async function CallDetailPage({ params }: { params: { id: string 
             <div className="flex items-center gap-3">
               <h2 className="font-mono text-[10px] uppercase tracking-widest text-ink">Transcript</h2>
               <span className="badge badge-cobalt">{lines.length} turns</span>
-              {quotes.length > 0 && (
-                <span className="badge badge-crit">{quotes.length} flagged</span>
-              )}
+              <FlaggedNav count={quotes.length} flaggedIds={flaggedIds} />
             </div>
             <span className="font-mono text-[9px] text-ink-3">Agent →  ·  ← User</span>
           </div>
