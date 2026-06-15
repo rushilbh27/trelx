@@ -1,5 +1,5 @@
-import { CallDetailSkeleton } from "@/app/components/Skeleton";
+import { WaveLoadingScreen } from "@/app/components/WaveLoadingScreen";
 
 export default function Loading() {
-  return <CallDetailSkeleton />;
+  return <WaveLoadingScreen text="Loading call transcript…" />;
 }

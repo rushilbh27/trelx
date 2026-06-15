@@ -1,5 +1,5 @@
-import { DashboardSkeleton } from "@/app/components/Skeleton";
+import { WaveLoadingScreen } from "@/app/components/WaveLoadingScreen";
 
 export default function Loading() {
-  return <DashboardSkeleton />;
+  return <WaveLoadingScreen text="Loading dashboard…" />;
 }

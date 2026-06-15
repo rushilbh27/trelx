@@ -1,5 +1,5 @@
-import { AgentDetailSkeleton } from "@/app/components/Skeleton";
+import { WaveLoadingScreen } from "@/app/components/WaveLoadingScreen";
 
 export default function Loading() {
-  return <AgentDetailSkeleton />;
+  return <WaveLoadingScreen text="Loading agent profile…" />;
 }
