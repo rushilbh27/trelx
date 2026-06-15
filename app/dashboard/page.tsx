@@ -48,19 +48,19 @@ export default async function DashboardPage() {
         .gte("duration_seconds", MIN_ANALYSIS_SECONDS)
         .lte("duration_seconds", MAX_ANALYSIS_SECONDS)
         .order("created_at", { ascending: false })
-        .limit(5000),
+        .limit(1000),
       supabase
         .from("call_errors")
         .select("id, call_id, agent_id, error_type, severity, quote, call_stage")
         .order("detected_at", { ascending: false })
-        .limit(10000)
+        .limit(1000)
     ]);
     if (callsResult.error) throw callsResult.error;
     if (errorsResult.error) throw errorsResult.error;
     callRows = callsResult.data ?? [];
     errorRows = errorsResult.data ?? [];
   } catch (error) {
-    setupError = error instanceof Error ? error.message : String(error);
+    setupError = error instanceof Error ? error.message : JSON.stringify(error, null, 2);
   }
 
   const calls = callRows as Call[];

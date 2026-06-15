@@ -42,7 +42,7 @@ export default async function AgentPage({ params }: { params: { agentId: string 
     errorRows = errorsResult.data ?? [];
     patchRows = patchesResult.data ?? [];
   } catch (error) {
-    setupError = error instanceof Error ? error.message : String(error);
+    setupError = error instanceof Error ? error.message : JSON.stringify(error, null, 2);
   }
 
   const calls = callRows as Call[];
