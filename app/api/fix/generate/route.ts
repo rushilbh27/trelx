@@ -12,8 +12,19 @@ type Body = {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Body;
-    if (!body.error_id) {
-      return NextResponse.json({ ok: false, error: "error_id required" }, { status: 400 });
+    const { error_id } = body;
+    if (!error_id) return NextResponse.json({ error: "Missing error_id" }, { status: 400 });
+
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      return NextResponse.json({
+        ok: true,
+        patch: {
+          find_text: "[PUBLIC DEMO MODE] This is a simulated patch.",
+          replace_text: "[PUBLIC DEMO MODE] In a live environment, GPT-4o would analyze the transcript and generate an exact prompt patch to fix this failure.",
+          reason: "Demo mode: fix generation is disabled to prevent OpenAI API abuse and protect credits."
+        }
+      });
     }
 
     const supabase = createServerSupabase();

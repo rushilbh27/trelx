@@ -12,8 +12,24 @@ type Body = {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Body;
-    const agentType = body.agent_type ?? "sales";
+    const { agent_type } = body;
+    if (!agent_type) return NextResponse.json({ error: "Missing agent_type" }, { status: 400 });
+
+    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+      // Simulate delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      return NextResponse.json({
+        ok: true,
+        blueprint: {
+          system_prompt: `[PUBLIC DEMO MODE]\n\nThis is a simulated blueprint. In a live environment, GPT-4o would have synthesized a complete, production-ready system prompt by analyzing all recent failure patterns from the database.\n\nThis action is disabled in the public demo to protect API credits.`,
+          based_on_calls: 500,
+          based_on_errors: 31
+        }
+      });
+    }
+
     const supabase = createServerSupabase();
+    const agentType = agent_type ?? "sales";
 
     const [{ count: callCount, error: callError }, { data: errorRows, error: rowsError }] =
       await Promise.all([
