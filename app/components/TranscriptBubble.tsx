@@ -1,5 +1,32 @@
 import { quoteMatchesLine, type TranscriptLine } from "@/lib/transcript";
 
+const ROLE_CONFIG = {
+  Agent: {
+    avatar: "AG",
+    avatarClass: "bg-ink text-chalk border-2 border-ink",
+    label: "Agent",
+    labelColor: "text-ink-2",
+    bubbleClass: "bubble-agent",
+    align: "left" as const
+  },
+  User: {
+    avatar: "US",
+    avatarClass: "bg-cobalt text-white border-2 border-cobalt",
+    label: "User",
+    labelColor: "text-cobalt",
+    bubbleClass: "bubble-user",
+    align: "right" as const
+  },
+  Tool: {
+    avatar: "FN",
+    avatarClass: "bg-[var(--warn-bg)] text-[var(--warn)] border-2 border-[var(--warn-border)]",
+    label: "Tool Call",
+    labelColor: "text-[var(--warn)]",
+    bubbleClass: "bubble-tool",
+    align: "left" as const
+  }
+};
+
 export function TranscriptBubble({
   line,
   quotes
@@ -7,27 +34,56 @@ export function TranscriptBubble({
   line: TranscriptLine;
   quotes: Array<string | null>;
 }) {
-  const isAgent = line.role === "Agent";
-  const isTool = line.role === "Tool";
-  const hasError = quotes.some((quote) => quoteMatchesLine(quote, line));
-  const bubbleClass = hasError
-    ? "border-red-400/50 bg-red-950/30 text-red-100"
-    : isTool
-      ? "border-yellow-400/30 bg-yellow-950/20 text-yellow-100"
-      : isAgent
-        ? "border-orange-300/30 bg-[#17110d] text-zinc-100"
-        : "border-white/10 bg-zinc-950 text-zinc-300";
+  const role = line.role === "Agent" ? "Agent" : line.role === "Tool" ? "Tool" : "User";
+  const config = ROLE_CONFIG[role];
+  const hasError = quotes.some((q) => quoteMatchesLine(q, line));
+  const isRight = config.align === "right";
+
+  const bubbleClass = hasError ? "bubble-error" : config.bubbleClass;
 
   return (
-    <div className={`flex gap-3 ${isAgent || isTool ? "" : "flex-row-reverse"}`}>
-      <div className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center border text-[10px] font-black ${
-        isAgent ? "border-orange-300/40 text-orange-100" : isTool ? "border-yellow-400/40 text-yellow-200" : "border-zinc-600 text-zinc-300"
-      }`}>
-        {isAgent ? "A" : isTool ? "T" : "U"}
+    <div
+      className={`flex gap-2.5 ${isRight ? "flex-row-reverse" : ""}`}
+      style={{ animation: "fade-up 0.25s ease-out both" }}
+    >
+      {/* Avatar */}
+      <div
+        className={`mt-0.5 shrink-0 h-7 w-7 flex items-center justify-center text-[9px] font-bold tracking-widest ${config.avatarClass}`}
+        aria-label={config.label}
+        title={config.label}
+        style={{ fontFamily: "var(--font-mono)" }}
+      >
+        {config.avatar}
       </div>
-      <div className={`max-w-[84%] rounded-[22px] border px-3 py-2 text-sm leading-6 ${bubbleClass}`}>
-        <div className="mb-1 text-[10px] uppercase tracking-[0.16em] text-zinc-500">[{line.index}] {line.role}</div>
-        <div className="whitespace-pre-wrap break-words">{line.text || "..."}</div>
+
+      {/* Bubble */}
+      <div className={`max-w-[78%] ${bubbleClass} px-4 py-3`}>
+        {/* Role label + index */}
+        <div className="flex items-center gap-2 mb-1.5">
+          <span
+            className={`font-mono text-[9px] font-bold uppercase tracking-widest ${config.labelColor}`}
+          >
+            {config.label}
+          </span>
+          <span className="font-mono text-[9px] text-ink-3">#{line.index}</span>
+          {hasError && (
+            <span
+              className="badge badge-crit"
+              style={{ fontSize: "9px", padding: "1px 6px" }}
+            >
+              ⚠ Flagged
+            </span>
+          )}
+        </div>
+
+        {/* Message text */}
+        <p
+          className={`text-sm leading-relaxed whitespace-pre-wrap break-words m-0 ${
+            hasError ? "text-[var(--crit)] font-medium" : "text-ink"
+          } ${role === "Tool" ? "font-mono text-xs" : ""}`}
+        >
+          {line.text || <span className="text-ink-3 italic">…</span>}
+        </p>
       </div>
     </div>
   );

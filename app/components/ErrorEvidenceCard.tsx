@@ -1,8 +1,17 @@
 import Link from "next/link";
-import { errorImpact, errorLabel, severityTone } from "@/lib/error-copy";
+import { errorImpact, errorLabel, severityTone, hasAgentEvidence } from "@/lib/error-copy";
 import { transcriptContext, type TranscriptLine } from "@/lib/transcript";
 import type { CallError } from "@/lib/types";
 import { GenerateFixButton } from "@/app/components/FixActions";
+
+const SEVERITY_CONFIG = {
+  critical: { badge: "badge-crit",  border: "border-[var(--crit)]", bg: "bg-[var(--crit-bg)]",  label: "Critical",  icon: "🔴" },
+  high:     { badge: "badge-warn",  border: "border-[var(--warn)]", bg: "bg-[var(--warn-bg)]",  label: "High",      icon: "🟡" },
+  medium:   { badge: "badge-cobalt",border: "border-cobalt",        bg: "bg-[var(--cobalt-bg)]", label: "Medium",    icon: "🔵" },
+  low:      { badge: "badge",       border: "border-chalk-3",       bg: "bg-white",              label: "Low",       icon: "⚪" }
+} as const;
+
+type Severity = keyof typeof SEVERITY_CONFIG;
 
 export function ErrorEvidenceCard({
   error,
@@ -14,38 +23,75 @@ export function ErrorEvidenceCard({
   showFix?: boolean;
 }) {
   const context = transcriptContext(transcriptLines, error.quote, 2);
+  const sev = (error.severity as Severity) in SEVERITY_CONFIG
+    ? (error.severity as Severity)
+    : "low";
+  const config = SEVERITY_CONFIG[sev];
 
   return (
-    <article className="rounded-[26px] border border-white/8 bg-[#111111] p-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className={`border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${severityTone(error.severity)}`}>
-          {error.severity}
+    <article
+      className={`bg-white border-2 ${config.border} shadow-brutal-sm p-5`}
+      style={{ animation: "fade-up 0.3s ease-out both" }}
+    >
+      {/* Header row */}
+      <div className="flex flex-wrap items-start gap-2 mb-3">
+        <span className={`badge ${config.badge}`}>
+          {config.icon} {config.label}
         </span>
-        <span className="text-sm font-black text-white">{errorLabel(error.error_type)}</span>
-        {error.call_stage ? <span className="border border-white/10 px-2 py-1 text-[10px] uppercase text-zinc-500">{error.call_stage}</span> : null}
-        <Link href={`/calls/${encodeURIComponent(error.call_id)}`} className="ml-auto text-xs uppercase tracking-[0.14em] text-orange-100 hover:text-white">
-          inspect call
+        <span className="font-sans text-sm font-bold text-ink flex-1 min-w-0">
+          {errorLabel(error.error_type)}
+        </span>
+        {error.call_stage && (
+          <span className="badge text-ink-3 border-chalk-3">{error.call_stage}</span>
+        )}
+        <Link
+          href={`/calls/${encodeURIComponent(error.call_id)}`}
+          className="btn-brutal btn-brutal-cobalt ml-auto shrink-0"
+          style={{ padding: "4px 12px", fontSize: "10px" }}
+        >
+          Inspect call →
         </Link>
       </div>
 
-      <p className="mt-3 text-sm leading-6 text-zinc-400">{errorImpact(error.error_type)}</p>
+      {/* Impact description */}
+      <p className="font-sans text-sm text-ink-2 leading-relaxed mb-4">
+        {errorImpact(error.error_type)}
+      </p>
 
-      <blockquote className="mt-4 border-l-2 border-orange-300 bg-[#18110d] px-4 py-3 text-sm leading-6 text-zinc-100">
-        {error.quote ?? "No quote captured."}
+      {/* Quote evidence */}
+      <blockquote
+        className={`border-l-4 ${config.border} ${config.bg} px-4 py-3 mb-4`}
+      >
+        <div className="font-mono text-[9px] uppercase tracking-widest text-ink-3 mb-1.5">Agent quote</div>
+        <p className="font-sans text-sm text-ink leading-relaxed m-0">
+          {error.quote ?? "No quote captured."}
+        </p>
       </blockquote>
 
-      {context.length > 0 ? (
-        <div className="mt-4 grid gap-2 border border-white/10 bg-zinc-950 p-3">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Failure context</div>
-          {context.map((line) => (
-            <div key={`${line.index}-${line.role}`} className={line.raw === error.quote ? "text-sm text-red-200" : "text-xs text-zinc-400"}>
-              <span className="text-zinc-600">[{line.index}] {line.role}: </span>{line.text}
-            </div>
-          ))}
+      {/* Context window */}
+      {context.length > 0 && (
+        <div className="bg-chalk-2 border border-chalk-3 p-3 mb-4">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-ink-3 mb-2">Failure context</div>
+          <div className="space-y-1">
+            {context.map((line) => (
+              <div
+                key={`${line.index}-${line.role}`}
+                className={`text-xs leading-relaxed font-sans ${
+                  line.raw === error.quote
+                    ? "text-[var(--crit)] font-semibold"
+                    : "text-ink-3"
+                }`}
+              >
+                <span className="font-mono text-[9px] text-ink-3 mr-2">[{line.index}] {line.role}:</span>
+                {line.text}
+              </div>
+            ))}
+          </div>
         </div>
-      ) : null}
+      )}
 
-      {showFix ? <GenerateFixButton errorId={error.id} /> : null}
+      {/* Generate fix */}
+      {showFix && <GenerateFixButton errorId={error.id} />}
     </article>
   );
 }

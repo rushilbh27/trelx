@@ -213,5 +213,9 @@ If no errors, return {"errors": []}.`
     validateDetection
   );
 
-  return result ?? [];
+  if (result === null) {
+    throw new Error("Failed to generate or validate JSON from GPT-4o");
+  }
+
+  return result;
 }

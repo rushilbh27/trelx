@@ -3,6 +3,8 @@
 -- Run this entire file in the Supabase SQL Editor at 9:00 AM
 -- ============================================================================
 
+drop table if exists call_messages cascade;
+drop table if exists call_tools cascade;
 drop table if exists call_errors cascade;
 drop table if exists patches cascade;
 drop table if exists blueprints cascade;
@@ -21,7 +23,40 @@ create table calls (
   tool_calls jsonb,
   duration_seconds int,
   created_at timestamptz default now(),
-  analyzed boolean default false
+  analyzed boolean default false,
+  analysis_status text default 'pending', -- 'pending' | 'analyzing' | 'complete' | 'skipped' | 'error'
+  error_count int default 0,
+  critical_error_count int default 0,
+  call_errors jsonb,
+  end_reason text,
+  ended_at timestamptz,
+  raw_data jsonb,
+  prompt_hash text
+);
+
+-- ----------------------------------------------------------------------------
+-- call_messages: individual transcript messages
+-- ----------------------------------------------------------------------------
+create table call_messages (
+  call_id text references calls(id) on delete cascade,
+  role text not null,
+  text text not null,
+  ordinal int not null,
+  primary key (call_id, ordinal)
+);
+
+-- ----------------------------------------------------------------------------
+-- call_tools: tool invocations from the call
+-- ----------------------------------------------------------------------------
+create table call_tools (
+  id uuid default gen_random_uuid() primary key,
+  call_id text references calls(id) on delete cascade,
+  tool_name text not null,
+  parameters jsonb,
+  result jsonb,
+  invocation_time timestamptz,
+  status text,
+  error_message text
 );
 
 -- ----------------------------------------------------------------------------
@@ -29,7 +64,7 @@ create table calls (
 -- ----------------------------------------------------------------------------
 create table call_errors (
   id uuid default gen_random_uuid() primary key,
-  call_id text references calls(id),
+  call_id text references calls(id) on delete cascade,
   agent_id text not null,
   error_type text not null,
   severity text not null check (severity in ('low','medium','high','critical')),
@@ -84,6 +119,8 @@ alter publication supabase_realtime add table call_errors;
 -- RLS disabled for hackathon speed
 -- ----------------------------------------------------------------------------
 alter table calls disable row level security;
+alter table call_messages disable row level security;
+alter table call_tools disable row level security;
 alter table call_errors disable row level security;
 alter table patches disable row level security;
 alter table blueprints disable row level security;

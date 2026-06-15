@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { VoiceWave } from "./VoiceWave";
 
 type PatchRow = {
   find_text: string;
@@ -9,49 +10,89 @@ type PatchRow = {
 };
 
 export function GenerateFixButton({ errorId }: { errorId: string }) {
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [patch, setPatch] = useState<PatchRow | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   async function generate() {
-    setBusy(true);
-    setStatus("generating");
-    const response = await fetch("/api/fix/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error_id: errorId })
-    });
-    const data = (await response.json()) as { ok?: boolean; patch?: PatchRow; error?: string };
-    setPatch(data.patch ?? null);
-    setStatus(data.ok ? "patch generated" : data.error ?? "generation failed");
-    setBusy(false);
+    setStatus("loading");
+    setPatch(null);
+    setErrorMsg("");
+    try {
+      const response = await fetch("/api/fix/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error_id: errorId })
+      });
+      const data = (await response.json()) as { ok?: boolean; patch?: PatchRow; error?: string };
+      if (data.ok && data.patch) {
+        setPatch(data.patch);
+        setStatus("done");
+      } else {
+        setErrorMsg(data.error ?? "Generation failed");
+        setStatus("error");
+      }
+    } catch {
+      setErrorMsg("Network error");
+      setStatus("error");
+    }
   }
 
   return (
-    <div className="mt-4 rounded-2xl border border-white/8 bg-[#161110] p-4">
-      <div className="flex flex-wrap gap-2">
+    <div className="border-t-2 border-chalk-3 pt-4 mt-4">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={generate}
-          disabled={busy}
-          className="rounded-full border border-orange-300 bg-orange-300 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-black disabled:opacity-50"
+          disabled={status === "loading"}
+          className="btn-brutal btn-brutal-ink flex items-center gap-2"
+          style={{ padding: "8px 16px" }}
         >
-          Generate Fix
+          {status === "loading" ? (
+            <>
+              <VoiceWave size="sm" color="chalk" bars={5} />
+              <span>Generating…</span>
+            </>
+          ) : status === "done" ? (
+            "✓ Patch Ready"
+          ) : (
+            "Generate Fix →"
+          )}
         </button>
+
+        {status === "error" && (
+          <span className="font-mono text-[10px] text-[var(--crit)]">{errorMsg}</span>
+        )}
       </div>
-      {status ? <div className="mt-3 text-xs text-zinc-400">{status}</div> : null}
-      {patch ? (
-        <div className="mt-4 grid gap-3 text-xs">
+
+      {patch && status === "done" && (
+        <div className="mt-5 space-y-4">
+          {patch.reason && (
+            <div className="bg-[var(--cobalt-bg)] border border-[var(--cobalt-border)] p-3">
+              <div className="font-mono text-[9px] uppercase tracking-widest text-cobalt mb-1">Why this fix</div>
+              <p className="font-sans text-sm text-ink-2 leading-relaxed m-0">{patch.reason}</p>
+            </div>
+          )}
           <div>
-            <div className="mb-1 text-zinc-500">Find</div>
-            <pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded-xl border border-white/10 bg-black p-3 text-zinc-300">{patch.find_text}</pre>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-ink-3 mb-2">Remove (find)</div>
+            <pre
+              className="bg-[var(--crit-bg)] border-2 border-[var(--crit-border)] p-3 text-xs text-ink-2 overflow-auto max-h-28 whitespace-pre-wrap leading-relaxed"
+              style={{ fontFamily: "var(--font-mono)" }}
+            >
+              {patch.find_text}
+            </pre>
           </div>
           <div>
-            <div className="mb-1 text-zinc-500">Replace</div>
-            <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-xl border border-orange-300/15 bg-[#110d0c] p-3 text-orange-100">{patch.replace_text}</pre>
+            <div className="font-mono text-[9px] uppercase tracking-widest text-ink-3 mb-2">Replace with</div>
+            <pre
+              className="bg-[var(--ok-bg)] border-2 border-[var(--ok-border)] p-3 text-xs text-ink overflow-auto max-h-56 whitespace-pre-wrap leading-relaxed"
+              style={{ fontFamily: "var(--font-mono)" }}
+            >
+              {patch.replace_text}
+            </pre>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

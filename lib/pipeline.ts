@@ -24,6 +24,15 @@ import {
 } from "@/lib/ultravox";
 import type { Call, DetectedError } from "@/lib/types";
 
+/** Mirror of isAgentCall from ultravox.ts for use inside pipeline. */
+function isAgentCallRecord(call: UltravoxCall): boolean {
+  const agentId = call.agentId ?? call.agent?.agentId ?? null;
+  if (!agentId) return false;
+  const medium = call.medium as Record<string, unknown> | null | undefined;
+  if (medium && typeof medium === "object" && "webRtc" in medium) return false;
+  return true;
+}
+
 type PipelineSummary = {
   synced: number;
   analyzed: number;
@@ -196,22 +205,26 @@ async function upsertCalls(calls: EnrichedUltravoxCall[]) {
 
   if (existingCalls.length > 0) {
     const syncRows = existingCalls.map(syncOnlyCallToRow);
-    const enhancedExisting = await supabase.from("calls").upsert(syncRows, { onConflict: "id" });
-    if (enhancedExisting.error) {
-      const { error } = await supabase.from("calls").upsert(existingCalls.map(callToRow), { onConflict: "id" });
-      if (error) throw error;
+    for (const chunk of chunkArray(syncRows, 100)) {
+      const enhancedExisting = await supabase.from("calls").upsert(chunk, { onConflict: "id" });
+      if (enhancedExisting.error) {
+        const { error } = await supabase.from("calls").upsert(chunk.map((r) => existingCalls.find((c) => c.callId === r.id)).filter(Boolean).map(callToRow), { onConflict: "id" });
+        if (error) throw error;
+      }
     }
   }
 
   if (newCalls.length > 0) {
-    const enhancedNew = await supabase.from("calls").insert(newCalls.map(enhancedCallToRow));
-    if (enhancedNew.error) {
-      const baseRows = newCalls.map((call) => ({
-        ...callToRow(call),
-        analyzed: false
-      }));
-      const { error } = await supabase.from("calls").insert(baseRows);
-      if (error) throw error;
+    for (const chunk of chunkArray(newCalls, 100)) {
+      const enhancedNew = await supabase.from("calls").insert(chunk.map(enhancedCallToRow));
+      if (enhancedNew.error) {
+        const baseRows = chunk.map((call) => ({
+          ...callToRow(call),
+          analyzed: false
+        }));
+        const { error } = await supabase.from("calls").insert(baseRows);
+        if (error) throw error;
+      }
     }
   }
 }
@@ -226,23 +239,27 @@ async function upsertCallMetadata(calls: UltravoxCall[]) {
   const existingCalls = calls.filter((call) => existingIds.has(call.callId));
 
   if (existingCalls.length > 0) {
-    const { error } = await supabase.from("calls").upsert(existingCalls.map(callMetadataToRow), { onConflict: "id" });
-    if (error) throw error;
+    for (const chunk of chunkArray(existingCalls, 100)) {
+      const { error } = await supabase.from("calls").upsert(chunk.map(callMetadataToRow), { onConflict: "id" });
+      if (error) throw error;
+    }
   }
 
   if (newCalls.length > 0) {
-    const enhancedNew = await supabase.from("calls").insert(newCalls.map(enhancedMetadataRow));
-    const { error } = enhancedNew.error
-      ? await supabase.from("calls").insert(
-        newCalls.map((call) => ({
-          ...callMetadataToRow(call),
-          transcript: null,
-          tool_calls: [],
-          analyzed: false
-        }))
-      )
-      : { error: null };
-    if (error) throw error;
+    for (const chunk of chunkArray(newCalls, 100)) {
+      const enhancedNew = await supabase.from("calls").insert(chunk.map(enhancedMetadataRow));
+      const { error } = enhancedNew.error
+        ? await supabase.from("calls").insert(
+          chunk.map((call) => ({
+            ...callMetadataToRow(call),
+            transcript: null,
+            tool_calls: [],
+            analyzed: false
+          }))
+        )
+        : { error: null };
+      if (error) throw error;
+    }
   }
 }
 
@@ -257,7 +274,9 @@ async function saveMessagesAndTools(calls: EnrichedUltravoxCall[]) {
     }))
   );
   if (messageRows.length > 0) {
-    await supabase.from("call_messages").upsert(messageRows, { onConflict: "call_id,ordinal" });
+    for (const chunk of chunkArray(messageRows, 500)) {
+      await supabase.from("call_messages").upsert(chunk, { onConflict: "call_id,ordinal" });
+    }
   }
 
   const toolRows = calls.flatMap((call) =>
@@ -278,7 +297,9 @@ async function saveMessagesAndTools(calls: EnrichedUltravoxCall[]) {
         .delete()
         .in("call_id", chunk);
     }
-    await supabase.from("call_tools").insert(toolRows);
+    for (const chunk of chunkArray(toolRows, 500)) {
+      await supabase.from("call_tools").insert(chunk);
+    }
   }
 }
 
@@ -334,6 +355,27 @@ async function loadAgentPrompts(calls: Call[]): Promise<PromptCache> {
 
 export async function analyzeEligibleCalls(limit = 100): Promise<AnalysisSummary> {
   const supabase = createServerSupabase();
+
+  // --- Repair pass: heal rows where analyzed=true but analysis_status='pending' ---
+  // These are permanently stuck because the main query filters on analyzed=false.
+  // Reset the analyzed flag so they get picked up in the next batch.
+  const { data: stuckRows } = await supabase
+    .from("calls")
+    .select("id")
+    .eq("analyzed", true)
+    .eq("analysis_status", "pending")
+    .gte("duration_seconds", MIN_ANALYSIS_SECONDS)
+    .lte("duration_seconds", MAX_ANALYSIS_SECONDS)
+    .not("transcript", "is", null)
+    .limit(200);
+  const stuckIds = (stuckRows ?? []).map((row) => String(row.id));
+  if (stuckIds.length > 0) {
+    for (const chunk of chunkArray(stuckIds, 80)) {
+      await supabase.from("calls").update({ analyzed: false }).in("id", chunk);
+    }
+  }
+
+  // --- Mark short / over-long calls as skipped ---
   const { data: shortRows, error: shortError } = await supabase
     .from("calls")
     .select("id")
@@ -358,6 +400,7 @@ export async function analyzeEligibleCalls(limit = 100): Promise<AnalysisSummary
     if (markShortError) throw markShortError;
   }
 
+  // --- Pick calls ready for analysis ---
   const { data: calls, error } = await supabase
     .from("calls")
     .select("*")
@@ -462,6 +505,12 @@ export async function ingestAndAnalyzeCall(callId: string): Promise<PipelineSumm
     getCallMessages(callId),
     getCallTools(callId)
   ]);
+
+  // Skip WebRTC / no-agent calls — these are browser tests, not production telephony
+  if (!isAgentCallRecord(call)) {
+    return { call_id: callId, synced: 0, analyzed: 0, errors: 0, skippedShort: 0 };
+  }
+
   const transcript = formatTranscript(messages);
   const row = callToRow({ ...call, transcript, tools });
 

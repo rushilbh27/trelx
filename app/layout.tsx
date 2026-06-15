@@ -3,47 +3,56 @@ import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Trelx",
+  title: { default: "Trelx", template: "%s · Trelx" },
   description: "Self-improving evaluation engine for Ultravox voice AI agents",
-  icons: {
-    icon: "/icon.svg"
-  }
+  icons: { icon: "/favicon.ico", apple: "/apple-icon.png" }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen font-[family-name:var(--font-sans)] text-zinc-100">
-        <div className="min-h-screen">
-          <header className="sticky top-0 z-50 border-b border-orange-300/15 bg-[#0a0a0a]/88 backdrop-blur-xl">
-            <nav className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-4 py-4 md:px-6">
-              <Link href="/" className="flex items-center gap-3 text-white">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-orange-300/35 bg-orange-500/10 text-sm font-black tracking-[0.2em] text-orange-50">
-                  T
-                </span>
+      <body className="min-h-screen" style={{ fontFamily: "var(--font-sans)" }}>
+        <div className="min-h-screen bg-chalk">
+
+          {/* ── Navigation ───────────────────────────────────────────────── */}
+          <header className="sticky top-0 z-50 bg-chalk border-b-2 border-ink">
+            <nav className="mx-auto flex max-w-[1440px] items-center justify-between gap-6 px-5 py-0 md:px-8">
+
+              {/* Logo */}
+              <Link href="/" className="flex items-center gap-3 py-4 group">
+                <img 
+                  src="/logo3.png" 
+                  alt="Trelx Logo" 
+                  className="h-8 w-8 object-contain shrink-0 group-hover:scale-105 transition-transform duration-150" 
+                />
                 <div>
-                  <div className="font-[family-name:var(--font-display)] text-lg font-black tracking-[0.18em]">TRELX</div>
-                  <div className="text-[10px] uppercase tracking-[0.24em] text-zinc-600">Ultravox control room</div>
+                  <div className="font-display text-xl font-bold tracking-tight text-ink leading-none">
+                    TRELX
+                  </div>
+                  <div className="font-mono text-[9px] uppercase tracking-widest text-ink-3 leading-none mt-0.5">
+                    Ultravox QA Engine
+                  </div>
                 </div>
               </Link>
 
-              <div className="hidden items-center gap-1 rounded-full border border-orange-300/12 bg-[#1a1512] p-1 md:flex">
-                {[
-                  ["/dashboard", "Dashboard"],
-                  ["/blueprint", "Blueprint"]
-                ].map(([href, label]) => (
-                  <Link
-                    key={href}
-                    href={href}
-                    className="rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 transition hover:bg-orange-500/10 hover:text-orange-50"
-                  >
-                    {label}
-                  </Link>
-                ))}
+              {/* Main nav links */}
+              <div className="hidden md:flex items-center gap-6 h-full">
+                <Link href="/dashboard" className="nav-link">Dashboard</Link>
+                <Link href="/calls" className="nav-link">All Calls</Link>
+                <Link href="/blueprint" className="nav-link">Blueprint</Link>
+              </div>
+
+              {/* Status indicator */}
+              <div className="flex items-center gap-2 py-4">
+                <div className="dot-live" />
+                <span className="font-mono text-[10px] uppercase tracking-widest text-ink-3">Live</span>
               </div>
             </nav>
           </header>
+
+          {/* ── Page content ─────────────────────────────────────────────── */}
           {children}
+
         </div>
       </body>
     </html>

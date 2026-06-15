@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import ws from "ws";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -15,7 +16,8 @@ export function createServerSupabase() {
     requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
     {
       auth: { persistSession: false },
-      global: { fetch: noStoreFetch }
+      global: { fetch: noStoreFetch },
+      realtime: { transport: ws }
     }
   );
 }

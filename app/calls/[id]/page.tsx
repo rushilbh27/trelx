@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ErrorEvidenceCard } from "@/app/components/ErrorEvidenceCard";
 import { TranscriptBubble } from "@/app/components/TranscriptBubble";
 import { createServerSupabase } from "@/lib/supabase";
-import { errorLabel, hasAgentEvidence, severityText } from "@/lib/error-copy";
+import { hasAgentEvidence, severityText, errorLabel } from "@/lib/error-copy";
 import { formatDuration, messageRowsToTranscriptLines, parseTranscript } from "@/lib/transcript";
 import { getCallRecordingUrl } from "@/lib/ultravox";
 import type { Call, CallError, CallMessage, CallTool } from "@/lib/types";
@@ -19,168 +19,310 @@ type StoredCallAnalysis = {
 };
 
 function excerpt(value: unknown): string {
-  if (value == null) return "-";
+  if (value == null) return "—";
   const text = typeof value === "string" ? value : JSON.stringify(value);
-  return text.length > 180 ? `${text.slice(0, 177)}...` : text;
+  return text.length > 200 ? `${text.slice(0, 197)}…` : text;
+}
+
+function StatusBadge({ status, errors, critical }: { status: string; errors: number; critical: number }) {
+  if (status !== "complete") {
+    return <span className="badge badge-cobalt">{status}</span>;
+  }
+  if (errors === 0) return <span className="badge badge-ok">✓ Clean</span>;
+  if (critical > 0)  return <span className="badge badge-crit">🔴 {errors} error{errors !== 1 ? "s" : ""}</span>;
+  return <span className="badge badge-warn">⚠ {errors} error{errors !== 1 ? "s" : ""}</span>;
 }
 
 export default async function CallDetailPage({ params }: { params: { id: string } }) {
   const callId = decodeURIComponent(params.id);
-  const supabase = createServerSupabase();
-  const [callResult, errorsResult, messagesResult, toolsResult, recordingUrl] = await Promise.all([
-    supabase.from("calls").select("*").eq("id", callId).single(),
-    supabase.from("call_errors").select("*").eq("call_id", callId).order("detected_at", { ascending: false }),
-    supabase.from("call_messages").select("call_id,role,text,ordinal").eq("call_id", callId).order("ordinal", { ascending: true }),
-    supabase.from("call_tools").select("call_id,tool_name,parameters,result,invocation_time,status,error_message").eq("call_id", callId).order("invocation_time", { ascending: true }),
-    getCallRecordingUrl(callId).catch(() => null)
-  ]);
+  let call: Call | null = null;
+  let errors: CallError[] = [];
+  let messageRows: CallMessage[] = [];
+  let toolRows: CallTool[] = [];
+  let recordingUrl: string | null = null;
+  let setupError: string | null = null;
 
-  if (callResult.error || !callResult.data) notFound();
-  if (errorsResult.error) throw errorsResult.error;
+  try {
+    const supabase = createServerSupabase();
+    const [callResult, errorsResult, messagesResult, toolsResult, recordingResult] = await Promise.all([
+      supabase.from("calls").select("*").eq("id", callId).single(),
+      supabase.from("call_errors").select("*").eq("call_id", callId).order("detected_at", { ascending: false }),
+      supabase.from("call_messages").select("call_id,role,text,ordinal").eq("call_id", callId).order("ordinal", { ascending: true }),
+      supabase.from("call_tools").select("call_id,tool_name,parameters,result,invocation_time,status,error_message").eq("call_id", callId).order("invocation_time", { ascending: true }),
+      getCallRecordingUrl(callId).catch(() => null)
+    ]);
 
-  const call = callResult.data as Call;
-  const errors = ((errorsResult.data ?? []) as CallError[]).filter((error) => hasAgentEvidence(error.quote));
-  const messageRows = messagesResult.error ? [] : ((messagesResult.data ?? []) as CallMessage[]);
-  const toolRows = toolsResult.error ? [] : ((toolsResult.data ?? []) as CallTool[]);
+    if (callResult.error || !callResult.data) notFound();
+    if (errorsResult.error) throw errorsResult.error;
+
+    call = callResult.data as Call;
+    errors = ((errorsResult.data ?? []) as CallError[]).filter((e) => hasAgentEvidence(e.quote));
+    messageRows = messagesResult.error ? [] : ((messagesResult.data ?? []) as CallMessage[]);
+    toolRows = toolsResult.error ? [] : ((toolsResult.data ?? []) as CallTool[]);
+    recordingUrl = recordingResult;
+  } catch (error) {
+    setupError = error instanceof Error ? error.message : String(error);
+  }
+
+  if (setupError) {
+    return (
+      <main className="mx-auto max-w-[1440px] px-5 py-12 md:px-8">
+        <div className="border-2 border-[var(--warn)] bg-[var(--warn-bg)] p-8 shadow-brutal">
+          <div className="font-display text-2xl font-bold text-ink mb-3">Connection Error</div>
+          <p className="font-sans text-sm text-ink-2 leading-relaxed mb-5">
+            Unable to connect to Supabase. The database may be paused or unreachable.
+          </p>
+          <pre className="font-mono text-xs text-ink-2 bg-white border-2 border-chalk-3 p-4 overflow-auto whitespace-pre-wrap max-h-[400px]">{setupError}</pre>
+        </div>
+      </main>
+    );
+  }
+
+  if (!call) notFound();
   const lines: TranscriptLine[] = messageRows.length > 0
     ? messageRowsToTranscriptLines(messageRows)
     : parseTranscript(call.transcript);
-  const quotes = errors.map((error) => error.quote);
-  const critical = errors.filter((error) => error.severity === "critical").length;
+  const quotes = errors.map((e) => e.quote);
+  const critical = errors.filter((e) => e.severity === "critical").length;
   const status = call.analysis_status === "complete"
-    ? errors.length === 0 ? "clean" : `${errors.length} error${errors.length === 1 ? "" : "s"}`
+    ? errors.length === 0 ? "complete" : "complete"
     : call.analysis_status ?? "pending";
   const analysis = (call.call_errors && typeof call.call_errors === "object" ? call.call_errors : null) as StoredCallAnalysis | null;
 
-  return (
-    <main className="mx-auto max-w-7xl px-5 py-8">
-      <div className="mb-5 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.16em]">
-        <Link href="/calls" className="text-zinc-500 hover:text-white">Back to calls</Link>
-        <span className="text-zinc-700">/</span>
-        <Link href={`/dashboard/${encodeURIComponent(call.agent_id)}`} className="text-zinc-500 hover:text-white">{call.agent_name ?? call.agent_id}</Link>
-      </div>
+  const agentLines = lines.filter((l) => l.role === "Agent").length;
+  const userLines = lines.filter((l) => l.role === "User").length;
 
-      <section className="mb-6 rounded-[28px] border border-white/8 bg-[#111111] p-5">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={errors.length > 0 ? severityText(critical > 0 ? "critical" : "high") : call.analysis_status === "complete" ? "text-orange-100" : "text-yellow-300"}>{status}</span>
-              <span className="text-xs text-zinc-600">duration {formatDuration(call.duration_seconds)}</span>
-              <span className="text-xs text-zinc-600">{new Date(call.created_at).toLocaleString()}</span>
-              {call.end_reason ? <span className="text-xs text-zinc-600">ended {call.end_reason}</span> : null}
+  return (
+    <main className="mx-auto max-w-[1440px] px-5 py-8 md:px-8">
+
+      {/* ── Breadcrumb ──────────────────────────────────────────────────────── */}
+      <nav className="mb-6 flex flex-wrap items-center gap-2 animate-fade-in" aria-label="Breadcrumb">
+        <Link
+          href="/calls"
+          className="btn-brutal"
+          style={{ padding: "6px 12px", fontSize: "10px" }}
+        >
+          ← All Calls
+        </Link>
+        <span className="font-mono text-ink-3 text-xs">/</span>
+        <Link
+          href={`/dashboard/${encodeURIComponent(call.agent_id)}`}
+          className="font-mono text-xs text-cobalt hover:text-cobalt-2 underline underline-offset-2 transition-colors"
+        >
+          {call.agent_name ?? call.agent_id}
+        </Link>
+        <span className="font-mono text-ink-3 text-xs">/</span>
+        <span className="font-mono text-xs text-ink-3 truncate max-w-[200px]">{call.id}</span>
+      </nav>
+
+      {/* ── Call header card ────────────────────────────────────────────────── */}
+      <section className="bg-white border-2 border-ink shadow-brutal mb-6 p-6 animate-fade-up">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="min-w-0 flex-1">
+            {/* Status + meta row */}
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <StatusBadge status={status} errors={errors.length} critical={critical} />
+              <span className="font-mono text-xs text-ink-3">{formatDuration(call.duration_seconds)}</span>
+              <span className="font-mono text-xs text-ink-3">
+                {new Date(call.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+              </span>
+              {call.end_reason && (
+                <span className="badge">{call.end_reason}</span>
+              )}
             </div>
-            <h1 className="mt-3 text-2xl font-black text-white">{call.summary || "Call detail"}</h1>
-            <div className="mt-2 break-all text-xs text-zinc-500">{call.id}</div>
-            {analysis?.summary ? <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-300">{analysis.summary}</p> : null}
+
+            {/* Title */}
+            <h1 className="font-display text-3xl md:text-4xl font-bold text-ink leading-tight mb-2">
+              {call.summary || call.agent_name || "Call Detail"}
+            </h1>
+            <div className="font-mono text-[10px] text-ink-3 break-all">{call.id}</div>
+
+            {analysis?.summary && (
+              <p className="mt-4 font-sans text-sm text-ink-2 leading-relaxed max-w-2xl border-l-4 border-cobalt pl-4">
+                {analysis.summary}
+              </p>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-4">
-            <div className="rounded-[20px] border border-white/10 px-4 py-3">
-              <div className="text-zinc-500">Messages</div>
-              <div className="mt-1 text-xl font-black text-white">{lines.length}</div>
-            </div>
-            <div className="rounded-[20px] border border-white/10 px-4 py-3">
-              <div className="text-zinc-500">Tools</div>
-              <div className="mt-1 text-xl font-black text-white">{toolRows.length}</div>
-            </div>
-            <div className="rounded-[20px] border border-white/10 px-4 py-3">
-              <div className="text-zinc-500">Errors</div>
-              <div className="mt-1 text-xl font-black text-white">{errors.length}</div>
-            </div>
-            <div className="rounded-[20px] border border-white/10 px-4 py-3">
-              <div className="text-zinc-500">Critical</div>
-              <div className="mt-1 text-xl font-black text-red-300">{critical}</div>
-            </div>
+
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: "Messages", value: lines.length },
+              { label: "Agent turns", value: agentLines },
+              { label: "Tools", value: toolRows.length },
+              { label: "Errors", value: errors.length, highlight: errors.length > 0 },
+            ].map(({ label, value, highlight }) => (
+              <div
+                key={label}
+                className={`border-2 p-4 text-center ${highlight ? "border-[var(--crit)] bg-[var(--crit-bg)]" : "border-chalk-3 bg-chalk"}`}
+              >
+                <div className="font-mono text-[9px] uppercase tracking-widest text-ink-3 mb-1">{label}</div>
+                <div className={`font-display text-3xl font-bold ${highlight ? "text-[var(--crit)]" : "text-ink"}`}>
+                  {value}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {recordingUrl ? (
-        <section className="mb-6 rounded-[28px] border border-white/8 bg-[#111111] p-5">
-          <div className="mb-3 flex items-center gap-2">
-            <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Recording</h2>
-            <span className="h-2 w-2 rounded-full bg-orange-300" />
+      {/* ── Recording player ────────────────────────────────────────────────── */}
+      {recordingUrl && (
+        <section className="bg-white border-2 border-ink shadow-brutal-sm mb-6 p-5 animate-fade-in" style={{ animationDelay: "100ms" }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="dot-live" />
+            <h2 className="font-mono text-[10px] uppercase tracking-widest text-ink">Recording</h2>
           </div>
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-          <audio controls src={recordingUrl} className="w-full" />
+          <audio controls src={recordingUrl} className="w-full" style={{ height: "40px" }} />
         </section>
-      ) : null}
+      )}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_440px]">
-        <section className="overflow-hidden rounded-[20px] border border-white/8 bg-[#111111] lg:sticky lg:top-24">
-          <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
-            <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Transcript</h2>
-            <span className="text-xs text-zinc-500">red = failed agent turn</span>
+      {/* ── Main grid: Transcript + Sidebar ─────────────────────────────────── */}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_460px]">
+
+        {/* Transcript panel */}
+        <section
+          className="bg-white border-2 border-ink shadow-brutal lg:sticky lg:top-[72px] overflow-hidden"
+          style={{ animationDelay: "150ms" }}
+        >
+          {/* Header */}
+          <div className="border-b-2 border-ink flex items-center justify-between px-5 py-3 bg-chalk">
+            <div className="flex items-center gap-3">
+              <h2 className="font-mono text-[10px] uppercase tracking-widest text-ink">Transcript</h2>
+              <span className="badge badge-cobalt">{lines.length} turns</span>
+              {quotes.length > 0 && (
+                <span className="badge badge-crit">{quotes.length} flagged</span>
+              )}
+            </div>
+            <span className="font-mono text-[9px] text-ink-3">Agent →  ·  ← User</span>
           </div>
-          <div className="max-h-[calc(100vh-190px)] min-h-[520px] space-y-3 overflow-y-auto p-4">
-            {lines.length > 0 ? lines.map((line) => (
-              <TranscriptBubble key={`${line.index}-${line.role}-${line.text.slice(0, 12)}`} line={line} quotes={quotes} />
-            )) : (
-              <div className="p-8 text-sm text-zinc-500">No transcript saved for this call.</div>
+
+          {/* Scrollable conversation */}
+          <div
+            className="max-h-[calc(100vh-200px)] min-h-[480px] overflow-y-auto p-4 space-y-3"
+            id="transcript-scroll"
+          >
+            {lines.length > 0 ? (
+              lines.map((line) => (
+                <TranscriptBubble
+                  key={`${line.index}-${line.role}-${line.text.slice(0, 8)}`}
+                  line={line}
+                  quotes={quotes}
+                />
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="font-display text-2xl text-ink-3 mb-2">No transcript</div>
+                <p className="font-sans text-sm text-ink-3">Transcript not saved for this call.</p>
+              </div>
             )}
           </div>
         </section>
 
-        <aside className="space-y-4">
+        {/* Sidebar */}
+        <aside className="space-y-5" style={{ animation: "slide-in-right 0.4s ease-out both", animationDelay: "200ms" }}>
+
+          {/* Error cards */}
           {errors.map((error) => (
-            <ErrorEvidenceCard key={error.id} error={error} transcriptLines={lines} showFix />
+            <ErrorEvidenceCard
+              key={error.id}
+              error={error}
+              transcriptLines={lines}
+              showFix
+            />
           ))}
 
-          <section className="rounded-[20px] border border-white/8 bg-[#111111] p-5">
-            <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Analysis summary</h2>
+          {/* Analysis summary */}
+          <section className="bg-white border-2 border-ink shadow-brutal-sm p-5">
+            <h2 className="font-display text-xl font-bold text-ink mb-4">Analysis Summary</h2>
+
             {errors.length === 0 ? (
-              <div className="mt-4 rounded-[22px] border border-orange-300/20 bg-[#18110d] p-4 text-sm text-orange-100">
-                {call.analysis_status === "complete" ? "No material failures detected for this call." : "Call not analyzed yet. Auto pipeline will pick it up."}
+              <div className={`border-2 p-4 ${call.analysis_status === "complete" ? "border-[var(--ok)] bg-[var(--ok-bg)]" : "border-chalk-3 bg-chalk"}`}>
+                <div className="font-sans text-sm text-ink-2 leading-relaxed">
+                  {call.analysis_status === "complete"
+                    ? "✓ No material failures detected for this call."
+                    : "Call not analyzed yet. Auto pipeline will pick it up shortly."}
+                </div>
               </div>
             ) : (
-              <div className="mt-4 grid gap-2">
-                {Object.entries(errors.reduce<Record<string, number>>((acc, error) => {
-                  acc[error.error_type] = (acc[error.error_type] ?? 0) + 1;
+              <div className="space-y-2">
+                {Object.entries(errors.reduce<Record<string, number>>((acc, e) => {
+                  acc[e.error_type] = (acc[e.error_type] ?? 0) + 1;
                   return acc;
                 }, {})).map(([type, count]) => (
-                  <div key={type} className="flex items-center justify-between border border-white/10 px-3 py-2 text-xs">
-                    <span>{errorLabel(type)}</span>
-                    <span className="text-orange-100">{count}</span>
+                  <div key={type} className="flex items-center justify-between border border-chalk-3 bg-chalk px-3 py-2">
+                    <span className="font-sans text-sm text-ink">{errorLabel(type)}</span>
+                    <span className="font-mono text-sm font-bold text-cobalt">{count}</span>
                   </div>
                 ))}
               </div>
             )}
-            {analysis?.goal_outcome ? (
-              <div className="mt-4 border border-white/10 bg-zinc-950 p-3 text-xs text-zinc-400">
-                Goal outcome: <span className="text-white">{analysis.goal_outcome}</span>
-                {analysis.goal_achieved === true ? <span className="ml-2 text-orange-100">achieved</span> : null}
+
+            {analysis?.goal_outcome && (
+              <div className="mt-4 border border-chalk-3 bg-chalk-2 p-3">
+                <div className="font-mono text-[9px] uppercase tracking-widest text-ink-3 mb-1">Goal outcome</div>
+                <p className="font-sans text-sm text-ink leading-relaxed m-0">
+                  {analysis.goal_outcome}
+                  {analysis.goal_achieved === true && (
+                    <span className="badge badge-ok ml-2">Achieved</span>
+                  )}
+                </p>
               </div>
-            ) : null}
+            )}
           </section>
 
-          {toolRows.length > 0 ? (
-            <section className="rounded-[20px] border border-white/8 bg-[#111111] p-5">
-              <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Tool activity</h2>
-              <div className="mt-4 grid gap-2">
+          {/* Tool activity */}
+          {toolRows.length > 0 && (
+            <section className="bg-white border-2 border-ink shadow-brutal-sm p-5">
+              <h2 className="font-display text-xl font-bold text-ink mb-4">
+                Tool Activity
+                <span className="font-mono text-base font-normal text-ink-3 ml-2">{toolRows.length}</span>
+              </h2>
+              <div className="space-y-3">
                 {toolRows.map((tool, index) => (
-                  <div key={`${tool.tool_name}-${tool.invocation_time ?? index}`} className="rounded-xl border border-white/10 p-3 text-xs">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-black text-white">{tool.tool_name}</span>
-                      <span className={tool.status === "error" ? "text-red-300" : "text-orange-100"}>{tool.status ?? "ok"}</span>
+                  <div
+                    key={`${tool.tool_name}-${tool.invocation_time ?? index}`}
+                    className={`border p-3 ${tool.status === "error" ? "border-[var(--crit)] bg-[var(--crit-bg)]" : "border-chalk-3 bg-chalk"}`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="font-mono text-xs font-bold text-ink">{tool.tool_name}</span>
+                      <span
+                        className={`badge ${tool.status === "error" ? "badge-crit" : "badge-ok"}`}
+                        style={{ fontSize: "9px", padding: "1px 6px" }}
+                      >
+                        {tool.status ?? "ok"}
+                      </span>
                     </div>
-                    {tool.error_message ? <div className="mt-2 text-red-200">{tool.error_message}</div> : null}
-                    <div className="mt-2 text-zinc-500">args: {excerpt(tool.parameters)}</div>
-                    <div className="mt-1 text-zinc-500">result: {excerpt(tool.result)}</div>
+                    {tool.error_message && (
+                      <div className="font-mono text-xs text-[var(--crit)] mb-2">{tool.error_message}</div>
+                    )}
+                    <div className="font-mono text-[10px] text-ink-3">
+                      <span className="text-ink-2">args:</span> {excerpt(tool.parameters)}
+                    </div>
+                    <div className="font-mono text-[10px] text-ink-3 mt-1">
+                      <span className="text-ink-2">result:</span> {excerpt(tool.result)}
+                    </div>
                   </div>
                 ))}
               </div>
             </section>
-          ) : null}
+          )}
 
-          {Array.isArray(analysis?.missed_opportunities) && analysis.missed_opportunities.length > 0 ? (
-            <section className="rounded-[20px] border border-white/8 bg-[#111111] p-5">
-              <h2 className="text-sm font-black uppercase tracking-[0.18em] text-zinc-300">Coaching notes</h2>
-              <div className="mt-4 grid gap-2">
-                {analysis.missed_opportunities.slice(0, 6).map((item) => (
-                  <div key={item} className="border border-white/10 bg-zinc-950 px-3 py-2 text-xs text-zinc-400">{item}</div>
+          {/* Coaching notes */}
+          {Array.isArray(analysis?.missed_opportunities) && (analysis.missed_opportunities?.length ?? 0) > 0 && (
+            <section className="bg-white border-2 border-ink shadow-brutal-sm p-5">
+              <h2 className="font-display text-xl font-bold text-ink mb-4">Coaching Notes</h2>
+              <div className="space-y-2">
+                {analysis!.missed_opportunities!.slice(0, 6).map((item) => (
+                  <div key={item} className="border-l-4 border-cobalt bg-[var(--cobalt-bg)] px-3 py-2">
+                    <p className="font-sans text-sm text-ink-2 m-0">{item}</p>
+                  </div>
                 ))}
               </div>
             </section>
-          ) : null}
+          )}
+
         </aside>
       </div>
     </main>

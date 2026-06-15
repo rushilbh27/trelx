@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { VoiceWave } from "./VoiceWave";
 
 async function runAnalysisBatches(batchSize: number, setStatus: (value: string) => void) {
   let analyzed = 0;
@@ -9,7 +10,7 @@ async function runAnalysisBatches(batchSize: number, setStatus: (value: string) 
   let skippedShort = 0;
 
   for (let batch = 0; batch < 250; batch += 1) {
-    setStatus(`analyzing batch ${batch + 1}`);
+    setStatus(`Analyzing batch ${batch + 1}…`);
     const response = await fetch("/api/analyze", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -32,8 +33,12 @@ async function runAnalysisBatches(batchSize: number, setStatus: (value: string) 
   return { analyzed, errors, skippedShort };
 }
 
+type Phase = "idle" | "syncing" | "analyzing" | "done" | "error";
+
 export function DashboardActions() {
-  const [status, setStatus] = useState<string>("arming pipeline");
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [status, setStatus] = useState("Warming up…");
+  const [stats, setStats] = useState<{ synced: number; analyzed: number; errors: number } | null>(null);
   const [isPending, startTransition] = useTransition();
   const didRun = useRef(false);
   const running = useRef(false);
@@ -44,38 +49,38 @@ export function DashboardActions() {
     didRun.current = true;
     let cancelled = false;
 
-    async function runPipeline(options: { syncLimit?: number; fullSync?: boolean; batchSize: number }) {
+    async function runPipeline(opts: { syncLimit?: number; batchSize: number }) {
       if (running.current || cancelled) return;
       running.current = true;
-
       try {
-        const syncLabel = options.fullSync ? "syncing full history" : `syncing latest ${options.syncLimit ?? 100} calls`;
-        setStatus(syncLabel);
-        const syncResponse = await fetch(
-          options.fullSync ? "/api/sync?all=1" : `/api/sync?limit=${options.syncLimit ?? 100}`,
-          { method: "GET" }
-        );
-        const syncData = (await syncResponse.json()) as { ok?: boolean; synced?: number; error?: string };
+        setPhase("syncing");
+        setStatus(`Syncing latest ${opts.syncLimit ?? 100} calls…`);
+        const syncResp = await fetch(`/api/sync?limit=${opts.syncLimit ?? 100}`, { method: "GET" });
+        const syncData = (await syncResp.json()) as { ok?: boolean; synced?: number; error?: string };
         if (!syncData.ok) throw new Error(syncData.error ?? "sync failed");
 
-        const analysis = await runAnalysisBatches(options.batchSize, setStatus);
+        setPhase("analyzing");
+        const analysis = await runAnalysisBatches(opts.batchSize, setStatus);
         if (cancelled) return;
 
-        setStatus(
-          `live: synced ${syncData.synced ?? 0}, analyzed ${analysis.analyzed}, errors ${analysis.errors}, skipped short ${analysis.skippedShort}`
-        );
+        setStats({ synced: syncData.synced ?? 0, analyzed: analysis.analyzed, errors: analysis.errors });
+        setPhase("done");
+        setStatus("Pipeline complete");
         startTransition(() => router.refresh());
-      } catch (error) {
-        if (!cancelled) setStatus(error instanceof Error ? error.message : String(error));
+      } catch (err) {
+        if (!cancelled) {
+          setPhase("error");
+          setStatus(err instanceof Error ? err.message : "Pipeline error");
+        }
       } finally {
         running.current = false;
       }
     }
 
-    runPipeline({ syncLimit: 400, batchSize: 25 });
+    runPipeline({ syncLimit: 80, batchSize: 25 });
     const interval = window.setInterval(() => {
-      runPipeline({ syncLimit: 80, batchSize: 20 });
-    }, 60000);
+      runPipeline({ syncLimit: 60, batchSize: 20 });
+    }, 90_000);
 
     return () => {
       cancelled = true;
@@ -83,13 +88,39 @@ export function DashboardActions() {
     };
   }, [router]);
 
+  const isActive = phase === "syncing" || phase === "analyzing" || isPending;
+
   return (
-    <div className="rounded-[24px] border border-white/10 bg-black/35 p-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="rounded-full border border-orange-300/40 bg-orange-400/12 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-orange-100">
-        {isPending ? "refreshing" : "auto pipeline"}
+    <div
+      className="flex items-center gap-4 border-2 border-ink bg-white px-4 py-3 shadow-brutal-sm"
+      role="status"
+      aria-live="polite"
+    >
+      {/* Wave or done indicator */}
+      {isActive ? (
+        <VoiceWave size="sm" color="cobalt" bars={6} />
+      ) : phase === "done" ? (
+        <div className="dot-ok" />
+      ) : phase === "error" ? (
+        <div className="dot-crit" />
+      ) : (
+        <div className="dot-live" />
+      )}
+
+      {/* Status text */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span
+          className="font-mono text-[10px] uppercase tracking-widest"
+          style={{ color: phase === "error" ? "var(--crit)" : phase === "done" ? "var(--ok)" : "var(--cobalt)" }}
+        >
+          {phase === "syncing" ? "Syncing" : phase === "analyzing" ? "Analyzing" : phase === "done" ? "Live" : phase === "error" ? "Error" : "Standby"}
         </span>
-        <span className="text-xs text-zinc-400">{status}</span>
+        <span className="font-sans text-xs text-ink-3">{status}</span>
+        {stats && phase === "done" && (
+          <span className="font-mono text-[10px] text-ink-3">
+            ↑ {stats.synced} synced · {stats.analyzed} analyzed · {stats.errors} errors
+          </span>
+        )}
       </div>
     </div>
   );

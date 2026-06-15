@@ -1,7 +1,19 @@
 import { NextResponse } from "next/server";
+import { inspect } from "node:util";
 import { analyzeAllEligibleCalls, analyzeEligibleCalls } from "@/lib/pipeline";
 
 export const dynamic = "force-dynamic";
+
+function serializeError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null) {
+    // Supabase errors are plain objects with { message, code, details }
+    const obj = error as Record<string, unknown>;
+    if (typeof obj.message === "string") return obj.message;
+    return inspect(error, { depth: 3 });
+  }
+  return String(error);
+}
 
 type AnalyzeBody = {
   limit?: number;
@@ -29,8 +41,9 @@ export async function POST(request: Request) {
       ...result
     });
   } catch (error) {
+    console.error("ANALYZE_ROUTE_ERROR", error);
     return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : String(error) },
+      { ok: false, error: serializeError(error) },
       { status: 500 }
     );
   }

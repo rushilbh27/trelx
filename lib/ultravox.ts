@@ -132,8 +132,26 @@ const KNOWN_AGENTS: Record<string, string> = {
   "efecb97c-2937-4507-a550-8db5e8882c82": "Real Estate AI",
   "4be98966-7c89-4149-8f10-e2ac16291f66": "Debt Collection 2",
   "3983f5c0-4a95-42e3-a95a-9dbe57e11c78": "Follow-Up Debt Bot",
-  "2dfe90c6-569f-49e0-84f4-e67d9e770255": "Debt Welcome Bot"
+  "2dfe90c6-569f-49e0-84f4-e67d9e770255": "Debt Welcome Bot",
+  "3969e9d9-39cc-4d3f-9620-e3cc4d9a0a30": "Luganda Test",
+  "fd16bcbb-0000-0000-0000-000000000000": "Order Process Demo"
 };
+
+/**
+ * Returns true for calls that should be processed by Trelx:
+ * - Must have an agentId (agent-driven calls only)
+ * - Must use SIP/telephony medium, not WebRTC (test/browser calls excluded)
+ */
+function isAgentCall(call: UltravoxCall): boolean {
+  const agentId = call.agentId ?? call.agent?.agentId ?? null;
+  if (!agentId) return false;
+
+  // Exclude WebRTC (browser/test calls). SIP calls have medium.sip, agent calls we want.
+  const medium = call.medium as Record<string, unknown> | null | undefined;
+  if (medium && typeof medium === "object" && "webRtc" in medium) return false;
+
+  return true;
+}
 
 export function getAgentDisplayName(
   agentId: string | null | undefined,
@@ -226,7 +244,7 @@ export async function listCalls(opts: { limit?: number; all?: boolean } = {}): P
     maxPages
   );
 
-  const endedCalls = calls.filter((call) => Boolean(call.ended));
+  const endedCalls = calls.filter((call) => Boolean(call.ended) && isAgentCall(call));
   return opts.all ? endedCalls : endedCalls.slice(0, limit);
 }
 
