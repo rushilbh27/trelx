@@ -51,7 +51,6 @@ export default async function DashboardPage() {
       supabase
         .from("call_errors")
         .select("id, call_id, agent_id, error_type, severity, quote, call_stage")
-        .order("detected_at", { ascending: false })
         .limit(1000)
     ]);
     if (callsResult.error) throw callsResult.error;
