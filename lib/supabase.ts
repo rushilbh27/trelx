@@ -17,7 +17,7 @@ export function createServerSupabase() {
     {
       auth: { persistSession: false },
       global: { fetch: noStoreFetch },
-      realtime: { transport: ws }
+      realtime: { transport: ws as any }
     }
   );
 }

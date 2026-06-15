@@ -52,18 +52,15 @@ function chunkArray<T>(items: T[], size: number): T[][] {
 }
 
 async function fetchExistingCallIds(callIds: string[]): Promise<Set<string>> {
-  if (callIds.length === 0) return new Set<string>();
+  if (callIds.length === 0) return new Set();
   const supabase = createServerSupabase();
-  const found = new Set<string>();
-  for (const chunk of chunkArray(callIds, 80)) {
-    const { data, error } = await supabase
-      .from("calls")
-      .select("id")
-      .in("id", chunk);
+  const existing = new Set<string>();
+  for (const chunk of chunkArray(callIds, 200)) {
+    const { data, error } = await supabase.from("calls").select("id").in("id", chunk);
     if (error) throw error;
-    for (const row of data ?? []) found.add(String(row.id));
+    for (const row of data ?? []) existing.add(row.id);
   }
-  return found;
+  return existing;
 }
 
 async function runPool<T, R>(
@@ -208,7 +205,10 @@ async function upsertCalls(calls: EnrichedUltravoxCall[]) {
     for (const chunk of chunkArray(syncRows, 100)) {
       const enhancedExisting = await supabase.from("calls").upsert(chunk, { onConflict: "id" });
       if (enhancedExisting.error) {
-        const { error } = await supabase.from("calls").upsert(chunk.map((r) => existingCalls.find((c) => c.callId === r.id)).filter(Boolean).map(callToRow), { onConflict: "id" });
+        const { error } = await supabase.from("calls").upsert(chunk.flatMap((r) => {
+          const c = existingCalls.find((ec) => ec.callId === r.id);
+          return c ? [callToRow(c)] : [];
+        }), { onConflict: "id" });
         if (error) throw error;
       }
     }
