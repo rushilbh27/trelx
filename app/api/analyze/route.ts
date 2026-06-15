@@ -34,14 +34,6 @@ export async function POST(request: Request) {
   try {
     const body = await readBody(request);
     const limit = Math.min(Math.max(body.limit ?? 15, 1), 100);
-
-    if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
-      return NextResponse.json({
-        ok: true,
-        message: "Demo mode active. Background batch analysis is disabled to protect API credits."
-      });
-    }
-
     const result = body.all ? await analyzeAllEligibleCalls(limit) : await analyzeEligibleCalls(limit);
 
     return NextResponse.json({
