@@ -15,19 +15,15 @@ const LINE_RE = /^\[(\d+)\]\s*(Agent|User|Tool):\s*([\s\S]*)$/;
 
 export function parseTranscript(transcript: string | null | undefined): TranscriptLine[] {
   if (!transcript) return [];
-  return transcript
-    .split("\n")
-    .map((raw, fallbackIndex): TranscriptLine | null => {
-      const match = raw.match(LINE_RE);
-      if (!match) return null;
-      return {
-        index: Number.parseInt(match[1], 10) || fallbackIndex,
-        role: match[2] as TranscriptLine["role"],
-        text: match[3] ?? "",
-        raw
-      };
-    })
-    .filter((line): line is TranscriptLine => line !== null);
+  const matches = [...transcript.matchAll(/\[(\d+)\]\s*(Agent|User|Tool):\s*([\s\S]*?)(?=\n\[\d+\]\s*(?:Agent|User|Tool):|$)/g)];
+  return matches.map((match, fallbackIndex) => {
+    return {
+      index: Number.parseInt(match[1], 10) || fallbackIndex,
+      role: match[2] as TranscriptLine["role"],
+      text: match[3].trim(),
+      raw: match[0].trim()
+    };
+  });
 }
 
 export function messageRoleToTranscriptRole(role: string): TranscriptLine["role"] {
