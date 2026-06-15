@@ -42,11 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/blueprint" className="nav-link">Blueprint</Link>
               </div>
 
-              {/* Status indicator */}
-              <div className="flex items-center gap-2 py-4">
-                <div className="dot-live" />
-                <span className="font-mono text-[10px] uppercase tracking-widest text-ink-3">Live</span>
-              </div>
+
             </nav>
           </header>
 
